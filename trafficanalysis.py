@@ -11,10 +11,9 @@ from geopy.geocoders import Nominatim
 import folium
 from folium.plugins import HeatMap
 import io
+import scapy.all as scapy
 from PIL import Image, ImageTk
-import scapy
-
-from dashboard import ACCENT_GREEN, DARK_GREEN, MATRIX_BG, MATRIX_GREEN
+from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN
 
 class TrafficAnalysisView(ttk.Frame):
     def __init__(self, parent):
@@ -37,7 +36,7 @@ class TrafficAnalysisView(ttk.Frame):
 
         # Start packet capture thread
         self.start_packet_capture()
-
+        
     def configure_style(self):
         """Configure the Matrix theme for the Traffic Analysis page."""
         self.style.configure("TrafficAnalysis.TFrame", background=MATRIX_BG)
@@ -87,25 +86,29 @@ class TrafficAnalysisView(ttk.Frame):
         
     def process_packet(self, packet):
         """Process each captured packet and update analysis data."""
-        if packet.haslayer(scapy.IP):
-            src_ip = packet[scapy.IP].src
-            dst_ip = packet[scapy.IP].dst
-            protocol = packet[scapy.IP].proto
-            size = len(packet)
-            headers = str(packet.summary())
+        try:
+            if packet.haslayer(scapy.IP):
+                src_ip = packet[scapy.IP].src
+                dst_ip = packet[scapy.IP].dst
+                protocol = packet[scapy.IP].proto
+                size = len(packet)
+                headers = str(packet.summary())
 
-            # Add packet to the packet list
-            self.packet_tree.insert("", "end", values=(
-                time.strftime("%H:%M:%S"),
-                src_ip,
-                dst_ip,
-                protocol,
-                size,
-                headers
-            ))
+                # Add packet to the packet list
+                self.packet_tree.insert("", "end", values=(
+                    time.strftime("%H:%M:%S"),
+                    src_ip,
+                    dst_ip,
+                    protocol,
+                    size,
+                    headers
+                ))
 
-            # Update analysis data
-            self.update_analysis_data(src_ip, dst_ip, protocol, size)
+                # Update analysis data
+                self.update_analysis_data(src_ip, dst_ip, protocol, size)
+        except Exception as e:
+            print(f"Error processing packet: {e}")
+        
 
     def setup_traffic_trends(self, parent):
         """Set up the Traffic Volume Trends tab."""
@@ -265,21 +268,38 @@ class TrafficAnalysisView(ttk.Frame):
         """Set up the Packet Inspection tab."""
         ttk.Label(parent, text="Packet Inspection", style="TrafficAnalysis.TLabel").pack(pady=10)
 
-        # Example packet details
-        self.packet_details = {
-            "Source IP": "192.168.1.1",
-            "Destination IP": "192.168.1.2",
-            "Protocol": "TCP",
-            "Payload": "Sample payload data"
-        }
+        # Treeview for packet inspection
+        columns = ("Time", "Source IP", "Destination IP", "Protocol", "Size", "Headers")
+        self.packet_tree = ttk.Treeview(parent, columns=columns, show='headings')
+        for col in columns:
+            self.packet_tree.heading(col, text=col)
+            self.packet_tree.column(col, width=100)
+        self.packet_tree.pack(fill=tk.BOTH, expand=True)
 
-        # Text widget for packet details
+        # Scrollbar for the Treeview
+        scrollbar = ttk.Scrollbar(parent, orient=tk.VERTICAL, command=self.packet_tree.yview)
+        self.packet_tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        # Text widget for detailed packet inspection
         self.packet_text = tk.Text(parent, wrap=tk.WORD, bg=MATRIX_BG, fg=MATRIX_GREEN, font=("Consolas", 10))
         self.packet_text.pack(fill=tk.BOTH, expand=True)
 
-        # Populate packet details
-        for key, value in self.packet_details.items():
-            self.packet_text.insert(tk.END, f"{key}: {value}\n")
+        # Bind Treeview selection event to show packet details
+        self.packet_tree.bind("<<TreeviewSelect>>", self.show_packet_details)
+        
+    def show_packet_details(self, event):
+        """Display detailed packet information when a packet is selected."""
+        selected_item = self.packet_tree.selection()
+        if selected_item:
+            packet_details = self.packet_tree.item(selected_item, "values")
+            self.packet_text.delete(1.0, tk.END)
+            self.packet_text.insert(tk.END, f"Time: {packet_details[0]}\n")
+            self.packet_text.insert(tk.END, f"Source IP: {packet_details[1]}\n")
+            self.packet_text.insert(tk.END, f"Destination IP: {packet_details[2]}\n")
+            self.packet_text.insert(tk.END, f"Protocol: {packet_details[3]}\n")
+            self.packet_text.insert(tk.END, f"Size: {packet_details[4]} bytes\n")
+            self.packet_text.insert(tk.END, f"Headers: {packet_details[5]}\n")
             
     def update_ui(self):
         """Update the UI with the latest packet data."""
