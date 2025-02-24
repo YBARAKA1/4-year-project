@@ -10,6 +10,7 @@ import queue
 from collections import defaultdict
 import platform
 import math
+from trafficanalysis import TrafficAnalysisView  # Ensure this import is correct
 
 # ======================
 # Enhanced Matrix Theme
@@ -103,19 +104,33 @@ class IDSDashboard:
         self.packet_queue = queue.Queue()
         self.attack_stats = {"SYN Flood": 0, "UDP Flood": 0, "ARP Spoofing": 0}
         
+        self.current_view = None
+        self.views = {}  # Holds the different view frames
+        
+        # Initialize packet_tree and alert_tree
+        self.packet_tree = None
+        self.alert_tree = None
+        
         self.setup_gui()
         self.setup_threads()
         
     # Add to IDSDashboard class
     def setup_threads(self):
-        # Packet processing thread
-        sniff_thread = threading.Thread(
-            target=scapy.sniff,
-            kwargs={'prn': self.process_packet, 'store': 0},
-            daemon=True
-        )
+        def sniff_packets():
+            while True:
+                try:
+                    scapy.sniff(
+                        prn=self.process_packet,
+                        store=0,
+                        filter="ip or arp or tcp or udp"  # Filter packets of interest
+                    )
+                except Exception as e:
+                    print(f"Sniffing error: {e}. Reopening socket...")
+                    time.sleep(1)  # Wait before reopening the socket
+
+        sniff_thread = threading.Thread(target=sniff_packets, daemon=True)
         sniff_thread.start()
-        
+
         # GUI update thread
         self.root.after(1000, self.update_gui)
 
@@ -145,15 +160,66 @@ class IDSDashboard:
         self.setup_sidebar(self.sidebar)
         main_pane.add(self.sidebar)
 
-        # Left Panel - Stats
-        left_panel = ttk.Frame(main_pane, width=300)
-        self.setup_left_panel(left_panel)
-        main_pane.add(left_panel)
+        # Main Content Container (replaces left and right panels)
+        self.container = ttk.Frame(main_pane)
+        main_pane.add(self.container, weight=1)  # Allow container to expand
 
-        # Right Panel - Network Analysis
-        right_panel = ttk.Frame(main_pane)
-        self.setup_right_panel(right_panel)
-        main_pane.add(right_panel)
+        # Show default view
+        self.show_view("Dashboard")
+        
+    def show_view(self, view_name):
+        # Hide current view
+        if self.current_view:
+            self.current_view.pack_forget()
+
+        # Create new view if not exists
+        if view_name not in self.views:
+            if view_name == "Dashboard":
+                self.views[view_name] = self.create_dashboard_view()
+            elif view_name == "TrafficAnalysis":
+                self.views[view_name] = TrafficAnalysisView(self.container)
+            elif view_name == "ThreatAlerts":
+                self.views[view_name] = self.create_threat_alerts_view()
+            elif view_name == "PacketStream":
+                self.views[view_name] = self.create_packet_stream_view()
+
+        # Display the view
+        self.current_view = self.views[view_name]
+        self.current_view.pack(fill=tk.BOTH, expand=True)
+        
+    def create_dashboard_view(self):
+        """Dashboard view with system stats and traffic overview."""
+        frame = ttk.Frame(self.container)
+        
+        # Left Panel - System Stats
+        left_panel = ttk.Frame(frame, width=300)
+        ttk.Label(left_panel, text="SYSTEM MONITOR", style="Header.TLabel").pack(pady=15)
+        self.cpu_gauge = CyberGauge(left_panel, "CPU LOAD", width=250, height=250, bg=MATRIX_BG, fg=MATRIX_GREEN)
+        self.cpu_gauge.pack(pady=10)
+        self.mem_gauge = CyberGauge(left_panel, "MEMORY USAGE", width=250, height=250, bg=MATRIX_BG, fg=MATRIX_GREEN)
+        self.mem_gauge.pack(pady=10)
+        ttk.Label(left_panel, text="LIVE TRAFFIC", style="Header.TLabel").pack(pady=10)
+        self.net_stats = ttk.Label(left_panel, text="IN: 0.00 MB/s\nOUT: 0.00 MB/s", font=("Consolas", 10))
+        self.net_stats.pack()
+        left_panel.pack(side=tk.LEFT, fill=tk.Y)
+
+        # Right Panel - Traffic Overview
+        right_panel = ttk.Frame(frame)
+        self.setup_traffic_chart(right_panel)
+        right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
+        
+        return frame
+        
+    def create_threat_alerts_view(self):
+        frame = ttk.Frame(self.container)
+        ttk.Label(frame, text="Threat Alerts", font=("Consolas", 16)).pack(pady=20)
+        # Add threat alerts widgets here
+        return frame
+
+    def create_packet_stream_view(self):
+        frame = ttk.Frame(self.container)
+        self.setup_packet_table(frame)
+        return frame
 
     def setup_sidebar(self, parent):
         # Sidebar styling
@@ -196,22 +262,20 @@ class IDSDashboard:
             self.sidebar.pack(side=tk.LEFT, fill=tk.Y)  # Show the sidebar
             self.sidebar_visible = True
             self.toggle_button.config(text="✕")  # Change button text
+            
+    
 
     def show_dashboard(self):
-        # Switch to the dashboard view
-        print("Switching to Dashboard")
+        self.show_view("Dashboard")
 
     def show_traffic_analysis(self):
-        # Switch to the traffic analysis view
-        print("Switching to Traffic Analysis")
+        self.show_view("TrafficAnalysis")
 
     def show_threat_alerts(self):
-        # Switch to the threat alerts view
-        print("Switching to Threat Alerts")
+        self.show_view("ThreatAlerts")
 
     def show_packet_stream(self):
-        # Switch to the packet stream view
-        print("Switching to Packet Stream")
+        self.show_view("PacketStream")
 
     def setup_left_panel(self, parent):
         # System Monitoring
@@ -247,23 +311,15 @@ class IDSDashboard:
         self.setup_traffic_chart(traffic_frame)
         notebook.add(traffic_frame, text="Traffic Analysis")
 
-        # Alerts Tab
-        alert_frame = ttk.Frame(notebook)
-        self.setup_alert_table(alert_frame)
-        notebook.add(alert_frame, text="Threat Alerts")
 
     def setup_packet_table(self, parent):
         columns = ("Time", "Protocol", "Source", "Destination", "Size")
-        self.packet_tree = ttk.Treeview(parent, columns=columns, show='headings',
-                                        selectmode='extended', height=25)
-        
+        self.packet_tree = ttk.Treeview(parent, columns=columns, show='headings', height=25)
         for col in columns:
-            self.packet_tree.heading(col, text=col, anchor='center')
-            self.packet_tree.column(col, width=150, anchor='center')
-        
+            self.packet_tree.heading(col, text=col)
+            self.packet_tree.column(col, width=150)
         vsb = ttk.Scrollbar(parent, orient="vertical", command=self.packet_tree.yview)
         self.packet_tree.configure(yscrollcommand=vsb.set)
-        
         self.packet_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         vsb.pack(side=tk.RIGHT, fill=tk.Y)
 
@@ -321,23 +377,37 @@ class IDSDashboard:
             self.ax.set_xlim(left=60, right=0)  # Reverse x-axis for intuitive timeline
             self.ax.set_xticks([60, 45, 30, 15, 0])
             self.ax.set_xticklabels([
-                '60s ago\n(Oldest Data)', 
-                '45s ago', 
-                '30s ago', 
-                '15s ago', 
-                'Current\n(Latest Data)'
+                '60s', 
+                '45s', 
+                '30s', 
+                '15s', 
+                '0s'
             ], color=MATRIX_GREEN)  # Set tick label color to green
             
             # Y-axis configuration
-            self.ax.set_ylim(bottom=0)
             max_traffic = max(max(self.detector.traffic_history['in'] or [0]), 
                             max(self.detector.traffic_history['out'] or [0]))
-            self.ax.set_yticks([0, max_traffic/2, max_traffic])
-            self.ax.set_yticklabels([
-                '0 MB/s\n(No Traffic)', 
-                f'{max_traffic/2:.1f} MB/s\n(Moderate Traffic)', 
-                f'{max_traffic:.1f} MB/s\n(Peak Traffic)'
-            ], color=MATRIX_GREEN)  # Set tick label color to green
+            
+            # Ensure the y-axis has a minimum range to avoid flat lines
+            y_min = 0
+            y_max = max_traffic if max_traffic > 0 else 1  # Ensure y_max is at least 1 if max_traffic is 0
+            
+            self.ax.set_ylim(bottom=y_min, top=y_max)
+            
+            # Set y-ticks dynamically based on the current traffic
+            if y_max > 0:
+                self.ax.set_yticks([y_min, y_max / 2, y_max])
+                self.ax.set_yticklabels([
+                    '0 MB/s', 
+                    f'{y_max / 2:.1f} MB/s\n(Moderate Traffic)', 
+                    f'{y_max:.1f} MB/s\n(Peak Traffic)'
+                ], color=MATRIX_GREEN)  # Set tick label color to green
+            else:
+                self.ax.set_yticks([y_min, y_max])
+                self.ax.set_yticklabels([
+                    '0 MB/s', 
+                    '0 MB/s'
+                ], color=MATRIX_GREEN)  # Set tick label color to green
             
             # Reapply styling after clear
             self.ax.set_xlabel("Time Progression (60 Second Window)", 
@@ -360,20 +430,7 @@ class IDSDashboard:
             
             self.canvas.draw()
 
-    def setup_alert_table(self, parent):
-        columns = ("Time", "Type", "Source", "Target")
-        self.alert_tree = ttk.Treeview(parent, columns=columns, show='headings',
-                                        height=15)
-        
-        for col in columns:
-            self.alert_tree.heading(col, text=col, anchor='center')
-            self.alert_tree.column(col, width=150, anchor='center')
-        
-        vsb = ttk.Scrollbar(parent, orient="vertical", command=self.alert_tree.yview)
-        self.alert_tree.configure(yscrollcommand=vsb.set)
-        
-        self.alert_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+
 
     def update_gui(self):
         # Update system metrics
@@ -397,48 +454,61 @@ class IDSDashboard:
         # Process alerts
         while not self.alert_queue.empty():
             alert = self.alert_queue.get()
-            self.alert_tree.insert("", "end", values=alert)
-            self.attack_stats[alert[1]] += 1
+            if self.alert_tree:  # Check if alert_tree exists
+                self.alert_tree.insert("", "end", values=alert)
+                self.attack_stats[alert[1]] += 1
         
         # Process packets
         while not self.packet_queue.empty():
             packet = self.packet_queue.get()
-            self.packet_tree.insert("", "end", values=packet)
-            # Keep last 1000 packets
-            if len(self.packet_tree.get_children()) > 1000:
-                self.packet_tree.delete(self.packet_tree.get_children()[0])
+            if self.packet_tree:  # Check if packet_tree exists
+                self.packet_tree.insert("", "end", values=packet)
+                # Keep last 1000 packets
+                if len(self.packet_tree.get_children()) > 1000:
+                    self.packet_tree.delete(self.packet_tree.get_children()[0])
 
 
     def process_packet(self, packet):
-        # Detection logic
-        result = self.detector.detect_attacks(packet)
-        if result:
-            alert_time = time.strftime("%H:%M:%S")
-            self.alert_queue.put((alert_time, *result))
-        
-        # Packet capture (handle both IP and 802.11 frames)
-        if packet.haslayer(scapy.IP):
-            proto = packet[scapy.IP].proto
-            protocol = {
-                1: "ICMP",
-                6: "TCP",
-                17: "UDP"
-            }.get(proto, "Other")
+        try:
+            # Detection logic
+            result = self.detector.detect_attacks(packet)
+            if result:
+                alert_time = time.strftime("%H:%M:%S")
+                self.alert_queue.put((alert_time, *result))
             
-            pkt_time = time.strftime("%H:%M:%S")
-            source = packet[scapy.IP].src
-            dest = packet[scapy.IP].dst
-            size = len(packet)
-            
-            self.packet_queue.put((pkt_time, protocol, source, dest, size))
-        elif packet.haslayer(scapy.Dot11):  # Handle 802.11 wireless frames
-            pkt_time = time.strftime("%H:%M:%S")
-            protocol = "802.11"
-            source = packet.addr2 if packet.addr2 else "Unknown"
-            dest = packet.addr1 if packet.addr1 else "Unknown"
-            size = len(packet)
-            
-            self.packet_queue.put((pkt_time, protocol, source, dest, size))
+            # Packet capture (handle both IP and 802.11 frames)
+            if packet.haslayer(scapy.IP):
+                proto = packet[scapy.IP].proto
+                protocol = {
+                    1: "ICMP",
+                    6: "TCP",
+                    17: "UDP"
+                }.get(proto, "Other")
+                
+                pkt_time = time.strftime("%H:%M:%S")
+                source = packet[scapy.IP].src
+                dest = packet[scapy.IP].dst
+                size = len(packet)
+                
+                self.packet_queue.put((pkt_time, protocol, source, dest, size))
+            elif packet.haslayer(scapy.Dot11):  # Handle 802.11 wireless frames
+                pkt_time = time.strftime("%H:%M:%S")
+                protocol = "802.11"
+                source = packet.addr2 if packet.addr2 else "Unknown"
+                dest = packet.addr1 if packet.addr1 else "Unknown"
+                size = len(packet)
+                
+                self.packet_queue.put((pkt_time, protocol, source, dest, size))
+            elif packet.haslayer(scapy.ARP):  # Handle ARP packets
+                pkt_time = time.strftime("%H:%M:%S")
+                protocol = "ARP"
+                source = packet[scapy.ARP].psrc
+                dest = packet[scapy.ARP].pdst
+                size = len(packet)
+                
+                self.packet_queue.put((pkt_time, protocol, source, dest, size))
+        except Exception as e:
+            print(f"Error processing packet: {e}")
 
 # ======================
 # Cyber-styled Gauge
