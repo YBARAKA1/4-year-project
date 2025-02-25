@@ -1,3 +1,4 @@
+import datetime
 import threading
 import tkinter as tk
 from tkinter import ttk
@@ -18,24 +19,42 @@ from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN
 class TrafficAnalysisView(ttk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
+        print("Initializing TrafficAnalysisView...")
         self.parent = parent
         self.style = ttk.Style()
         self.configure_style()
-        self.setup_ui()
 
         # Initialize packet capture data
         self.packet_data = {
-            "traffic_volume": defaultdict(int),
+            "traffic_volume": {
+                "second": defaultdict(int),
+                "minute": defaultdict(int),
+                "hour": defaultdict(int),
+                "day": defaultdict(int),
+                "week": defaultdict(int),
+                "month": defaultdict(int),
+            },
             "protocol_breakdown": defaultdict(int),
             "top_talkers": defaultdict(int),
             "geolocation": defaultdict(int),
         }
+        print("Packet data initialized.")
 
         # Load GeoIP database
         self.geoip_reader = geoip2.database.Reader("GeoLite2-City.mmdb")
+        print("GeoIP database loaded.")
+
+        # Set up the UI
+        self.setup_ui()
+        print("UI setup complete.")
 
         # Start packet capture thread
         self.start_packet_capture()
+        print("Packet capture started.")
+
+        # Update traffic trends after initialization
+        self.update_traffic_trends()
+        print("Traffic trends updated.")
         
     def configure_style(self):
         """Configure the Matrix theme for the Traffic Analysis page."""
@@ -53,7 +72,7 @@ class TrafficAnalysisView(ttk.Frame):
 
         # Traffic Volume Trends Tab
         traffic_trends_frame = ttk.Frame(notebook)
-        self.setup_traffic_trends(traffic_trends_frame)
+        self.setup_traffic_trends(traffic_trends_frame)  
         notebook.add(traffic_trends_frame, text="Traffic Trends")
 
         # Protocol Breakdown Tab
@@ -114,16 +133,13 @@ class TrafficAnalysisView(ttk.Frame):
         """Set up the Traffic Volume Trends tab."""
         ttk.Label(parent, text="Traffic Volume Trends", style="TrafficAnalysis.TLabel").pack(pady=10)
 
-        # Example data for traffic trends
-        self.traffic_data = {
-            "Hourly": [100, 200, 300, 400, 500, 600, 700, 800, 900, 1000, 1100, 1200],
-            "Daily": [5000, 6000, 7000, 8000, 9000, 10000, 11000],
-            "Weekly": [30000, 35000, 40000, 45000, 50000]
-        }
-
         # Dropdown to select time range
-        self.time_range_var = tk.StringVar(value="Hourly")
-        time_range_dropdown = ttk.Combobox(parent, textvariable=self.time_range_var, values=["Hourly", "Daily", "Weekly"])
+        self.time_range_var = tk.StringVar(value="Second")
+        time_range_dropdown = ttk.Combobox(
+            parent,
+            textvariable=self.time_range_var,
+            values=["Second", "Minute", "Hour", "Day", "Week", "Month"]
+        )
         time_range_dropdown.pack(pady=5)
         time_range_dropdown.bind("<<ComboboxSelected>>", self.update_traffic_trends)
 
@@ -131,8 +147,6 @@ class TrafficAnalysisView(ttk.Frame):
         self.traffic_fig = Figure(figsize=(8, 4), dpi=100, facecolor=MATRIX_BG)
         self.traffic_ax = self.traffic_fig.add_subplot(111, facecolor=MATRIX_BG)
         self.traffic_ax.tick_params(axis='both', colors=MATRIX_GREEN)
-        self.traffic_ax.set_xlabel("Time", color=MATRIX_GREEN)
-        self.traffic_ax.set_ylabel("Traffic Volume (MB)", color=MATRIX_GREEN)
 
         self.traffic_canvas = FigureCanvasTkAgg(self.traffic_fig, master=parent)
         self.traffic_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
@@ -140,11 +154,64 @@ class TrafficAnalysisView(ttk.Frame):
         # Initial plot
         self.update_traffic_trends()
         
+    def format_timestamps(self, timestamps, time_range):
+        """Format timestamps based on the selected time range."""
+        formatted_timestamps = []
+        for ts in timestamps:
+            if time_range == "Second":
+                # Format: %Y-%m-%d %H:%M:%S -> %H:%M:%S
+                formatted_ts = time.strftime("%H:%M:%S", time.strptime(ts, "%Y-%m-%d %H:%M:%S"))
+            elif time_range == "Minute":
+                # Format: %Y-%m-%d %H:%M -> %H:%M
+                formatted_ts = time.strftime("%H:%M", time.strptime(ts, "%Y-%m-%d %H:%M"))
+            elif time_range == "Hour":
+                # Format: %Y-%m-%d %H -> %H:00
+                formatted_ts = time.strftime("%H:00", time.strptime(ts, "%Y-%m-%d %H"))
+            elif time_range == "Day":
+                # Format: %Y-%m-%d -> %Y-%m-%d
+                formatted_ts = ts  # Already in the correct format
+            elif time_range == "Week":
+                # Format: %Y-%U -> Week %U, %Y
+                year, week = ts.split("-")
+                formatted_ts = f"Week {week}, {year}"
+            elif time_range == "Month":
+                # Format: %Y-%m -> %Y-%m
+                formatted_ts = ts  # Already in the correct format
+            else:
+                formatted_ts = ts  # Fallback to raw timestamp
+            formatted_timestamps.append(formatted_ts)
+        return formatted_timestamps
+        
     def update_analysis_data(self, src_ip, dst_ip, protocol, size):
         """Update traffic volume, protocol breakdown, and top talkers."""
-        hour = time.strftime("%H")
-        self.packet_data["traffic_volume"][hour] += size
+        current_time = time.time()
+        time_struct = time.localtime(current_time)
 
+        # Update traffic volume by second
+        second_key = time.strftime("%Y-%m-%d %H:%M:%S", time_struct)
+        self.packet_data["traffic_volume"]["second"][second_key] += size
+
+        # Update traffic volume by minute
+        minute_key = time.strftime("%Y-%m-%d %H:%M", time_struct)
+        self.packet_data["traffic_volume"]["minute"][minute_key] += size
+
+        # Update traffic volume by hour
+        hour_key = time.strftime("%Y-%m-%d %H", time_struct)
+        self.packet_data["traffic_volume"]["hour"][hour_key] += size
+
+        # Update traffic volume by day
+        day_key = time.strftime("%Y-%m-%d", time_struct)
+        self.packet_data["traffic_volume"]["day"][day_key] += size
+
+        # Update traffic volume by week
+        week_key = time.strftime("%Y-%U", time_struct)  # %U is the week number of the year
+        self.packet_data["traffic_volume"]["week"][week_key] += size
+
+        # Update traffic volume by month
+        month_key = time.strftime("%Y-%m", time_struct)
+        self.packet_data["traffic_volume"]["month"][month_key] += size
+
+        # Update protocol breakdown
         if protocol == 6:
             self.packet_data["protocol_breakdown"]["TCP"] += size
         elif protocol == 17:
@@ -154,6 +221,7 @@ class TrafficAnalysisView(ttk.Frame):
         else:
             self.packet_data["protocol_breakdown"]["Other"] += size
 
+        # Update top talkers
         self.packet_data["top_talkers"][(src_ip, dst_ip)] += size
 
         # Update geolocation
@@ -163,29 +231,50 @@ class TrafficAnalysisView(ttk.Frame):
         # Update UI
         self.update_ui()
 
-
     def update_traffic_trends(self, event=None):
         """Update the traffic trends chart based on the selected time range."""
         time_range = self.time_range_var.get()
-        data = self.traffic_data[time_range]
+        data = self.packet_data["traffic_volume"][time_range.lower()]
 
+        # Prepare data for plotting
+        timestamps = sorted(data.keys())
+        formatted_timestamps = self.format_timestamps(timestamps, time_range)
+        traffic_volumes = [data[timestamp] for timestamp in timestamps]
+
+        # Clear the previous plot
         self.traffic_ax.clear()
-        self.traffic_ax.plot(data, color=MATRIX_GREEN, marker='o')
+
+        # Plot the data (if available)
+        if timestamps:
+            self.traffic_ax.plot(formatted_timestamps, traffic_volumes, color=MATRIX_GREEN, marker='o')
+        else:
+            self.traffic_ax.text(0.5, 0.5, "No data available", color=MATRIX_GREEN, ha="center")
+
         self.traffic_ax.set_title(f"{time_range} Traffic Trends", color=MATRIX_GREEN)
+        self.traffic_ax.set_xlabel("Time", color=MATRIX_GREEN)
+        self.traffic_ax.set_ylabel("Traffic Volume (Bytes)", color=MATRIX_GREEN)
         self.traffic_ax.grid(True, color=DARK_GREEN, linestyle=':', linewidth=0.7, alpha=0.5)
+
+        # Rotate x-axis labels for better readability
+        plt.setp(self.traffic_ax.get_xticklabels(), rotation=45, ha="right")
+
+        # Redraw the canvas
         self.traffic_canvas.draw()
 
     def setup_protocol_breakdown(self, parent):
         """Set up the Protocol Breakdown tab."""
         ttk.Label(parent, text="Protocol Breakdown", style="TrafficAnalysis.TLabel").pack(pady=10)
 
-        # Example data for protocol breakdown
-        self.protocol_data = {
-            "TCP": 60,
-            "UDP": 30,
-            "ICMP": 5,
-            "Other": 5
-        }
+        # Help text to explain the protocols
+        help_text = (
+            "Protocol Breakdown:\n"
+            "- TCP: Transmission Control Protocol (Reliable, connection-oriented)\n"
+            "- UDP: User Datagram Protocol (Fast, connectionless)\n"
+            "- ICMP: Internet Control Message Protocol (Used for diagnostics)\n"
+            "- Other: All other protocols"
+        )
+        help_label = ttk.Label(parent, text=help_text, style="TrafficAnalysis.TLabel", justify=tk.LEFT)
+        help_label.pack(pady=10)
 
         # Matplotlib figure for protocol breakdown
         self.protocol_fig = Figure(figsize=(6, 6), dpi=100, facecolor=MATRIX_BG)
@@ -195,19 +284,60 @@ class TrafficAnalysisView(ttk.Frame):
         self.protocol_canvas = FigureCanvasTkAgg(self.protocol_fig, master=parent)
         self.protocol_canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
+        # Add hover tooltips
+        self.protocol_canvas.mpl_connect("motion_notify_event", self.on_hover_protocol_chart)
+
         # Initial plot
         self.update_protocol_breakdown()
 
     def update_protocol_breakdown(self):
         """Update the protocol breakdown pie chart."""
-        labels = self.protocol_data.keys()
-        sizes = self.protocol_data.values()
+        # Use the protocol breakdown data from packet_data
+        labels = list(self.packet_data["protocol_breakdown"].keys())
+        sizes = list(self.packet_data["protocol_breakdown"].values())
         colors = [MATRIX_GREEN, ACCENT_GREEN, DARK_GREEN, "#00FF77"]
 
+        # Clear the previous plot
         self.protocol_ax.clear()
-        self.protocol_ax.pie(sizes, labels=labels, colors=colors, autopct='%1.1f%%', startangle=90)
+
+        # Plot the data (if available)
+        if sizes:
+            wedges, texts, autotexts = self.protocol_ax.pie(
+                sizes,
+                labels=labels,
+                colors=colors,
+                autopct='%1.1f%%',
+                startangle=90,
+                textprops={'color': MATRIX_GREEN}
+            )
+
+            # Add tooltips to wedges
+            for wedge in wedges:
+                wedge.set_edgecolor(MATRIX_BG)  # Set edge color to match background
+        else:
+            self.protocol_ax.text(0.5, 0.5, "No data available", color=MATRIX_GREEN, ha="center")
+
         self.protocol_ax.set_title("Protocol Usage", color=MATRIX_GREEN)
         self.protocol_canvas.draw()
+        
+    def on_hover_protocol_chart(self, event):
+        """Display tooltips when hovering over the pie chart."""
+        if event.inaxes == self.protocol_ax:
+            for wedge in self.protocol_ax.patches:
+                if wedge.contains_point((event.x, event.y)):
+                    # Get the label and percentage for the hovered wedge
+                    label = wedge.get_label()
+                    percentage = wedge.get_height() / sum(self.packet_data["protocol_breakdown"].values()) * 100
+                    tooltip_text = f"{label}: {percentage:.1f}%"
+                    
+                    # Display the tooltip
+                    self.protocol_ax.set_title(tooltip_text, color=MATRIX_GREEN)
+                    self.protocol_canvas.draw()
+                    break
+            else:
+                # Reset the title if not hovering over any wedge
+                self.protocol_ax.set_title("Protocol Usage", color=MATRIX_GREEN)
+                self.protocol_canvas.draw()
 
     def setup_top_talkers(self, parent):
         """Set up the Top Talkers tab."""
@@ -231,6 +361,23 @@ class TrafficAnalysisView(ttk.Frame):
         # Populate treeview
         for row in self.top_talkers_data:
             self.top_talkers_tree.insert("", "end", values=row)
+            
+    def update_top_talkers(self):
+        """Update the Top Talkers tab with the latest data."""
+        # Clear the existing data in the treeview
+        for row in self.top_talkers_tree.get_children():
+            self.top_talkers_tree.delete(row)
+
+        # Sort the top talkers by traffic volume (descending order)
+        sorted_top_talkers = sorted(
+            self.packet_data["top_talkers"].items(),
+            key=lambda x: x[1],
+            reverse=True
+        )
+
+        # Add the top talkers to the treeview
+        for (src_ip, dst_ip), traffic_volume in sorted_top_talkers:
+            self.top_talkers_tree.insert("", "end", values=(src_ip, dst_ip, traffic_volume))
 
     def setup_geolocation(self, parent):
         """Set up the Geolocation tab."""
@@ -263,6 +410,16 @@ class TrafficAnalysisView(ttk.Frame):
             self.packet_data["geolocation"][ip] = location
         except Exception as e:
             print(f"GeoIP lookup failed for {ip}: {e}")
+    
+    def update_geolocation_map(self):
+        """Update the Geolocation tab with the latest data."""
+        # Clear the existing data in the treeview
+        for row in self.geolocation_tree.get_children():
+            self.geolocation_tree.delete(row)
+
+        # Add the geolocation data to the treeview
+        for ip, location in self.packet_data["geolocation"].items():
+            self.geolocation_tree.insert("", "end", values=(ip, location))
 
     def setup_packet_inspection(self, parent):
         """Set up the Packet Inspection tab."""
