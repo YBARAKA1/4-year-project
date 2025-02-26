@@ -158,7 +158,7 @@ class TrafficAnalysisView(ttk.Frame):
         """Format timestamps based on the selected time range."""
         formatted_timestamps = []
         for ts in timestamps:
-            if time_range == "Second":
+            if time_range == " Seconds":
                 # Format: %Y-%m-%d %H:%M:%S -> %H:%M:%S
                 formatted_ts = time.strftime("%H:%M:%S", time.strptime(ts, "%Y-%m-%d %H:%M:%S"))
             elif time_range == "Minute":
@@ -187,9 +187,14 @@ class TrafficAnalysisView(ttk.Frame):
         current_time = time.time()
         time_struct = time.localtime(current_time)
 
-        # Update traffic volume by second
-        second_key = time.strftime("%Y-%m-%d %H:%M:%S", time_struct)
+        
+        # Update traffic volume by 30 seconds
+        timestamp = int(time.mktime(time_struct))  # Convert time to seconds since epoch
+        rounded_timestamp = timestamp - (timestamp % 30)  # Round to nearest 30-second interval
+        second_key = time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(rounded_timestamp))
+
         self.packet_data["traffic_volume"]["second"][second_key] += size
+
 
         # Update traffic volume by minute
         minute_key = time.strftime("%Y-%m-%d %H:%M", time_struct)
@@ -450,14 +455,113 @@ class TrafficAnalysisView(ttk.Frame):
         selected_item = self.packet_tree.selection()
         if selected_item:
             packet_details = self.packet_tree.item(selected_item, "values")
-            self.packet_text.delete(1.0, tk.END)
-            self.packet_text.insert(tk.END, f"Time: {packet_details[0]}\n")
-            self.packet_text.insert(tk.END, f"Source IP: {packet_details[1]}\n")
-            self.packet_text.insert(tk.END, f"Destination IP: {packet_details[2]}\n")
-            self.packet_text.insert(tk.END, f"Protocol: {packet_details[3]}\n")
-            self.packet_text.insert(tk.END, f"Size: {packet_details[4]} bytes\n")
-            self.packet_text.insert(tk.END, f"Headers: {packet_details[5]}\n")
-            
+            self.packet_text.delete(1.0, tk.END)  # Clear previous content
+
+            # Extract packet details
+            time_stamp = packet_details[0]
+            src_ip = packet_details[1]
+            dst_ip = packet_details[2]
+            protocol = packet_details[3]
+            size = packet_details[4]
+            headers = packet_details[5]
+
+            # Display basic packet information
+            self.packet_text.insert(tk.END, f"Time: {time_stamp}\n")
+            self.packet_text.insert(tk.END, f"Source IP: {src_ip}\n")
+            self.packet_text.insert(tk.END, f"Destination IP: {dst_ip}\n")
+            self.packet_text.insert(tk.END, f"Protocol: {protocol}\n")
+            self.packet_text.insert(tk.END, f"Size: {size} bytes\n\n")
+
+            # Add detailed protocol stack and interpretation
+            self.packet_text.insert(tk.END, "1. Protocol Stack\n")
+            self.packet_text.insert(tk.END, "   Ethernet → Ethernet (Layer 2 - Data Link Layer)\n")
+            self.packet_text.insert(tk.END, "   IP → Internet Protocol (Layer 3 - Network Layer)\n")
+
+            # Map protocol numbers to their names
+            protocol_map = {
+                1: "ICMP",
+                2: "IGMP",
+                6: "TCP",
+                17: "UDP",
+                41: "IPv6",
+                50: "ESP",
+                51: "AH",
+                89: "OSPF",
+                132: "SCTP",
+                255: "Reserved"
+            }
+
+            # Get protocol name
+            protocol_name = protocol_map.get(int(protocol), f"Unknown Protocol ({protocol})")
+
+            # Add protocol-specific details
+            self.packet_text.insert(tk.END, f"   {protocol_name} → {self.get_protocol_description(protocol_name)}\n\n")
+
+            # Add source and destination IP details
+            self.packet_text.insert(tk.END, "2. Source and Destination IPs\n")
+            self.packet_text.insert(tk.END, f"   {src_ip} → Source IP\n")
+            self.packet_text.insert(tk.END, f"   {dst_ip} → Destination IP\n\n")
+
+            # Add protocol-specific interpretation
+            self.packet_text.insert(tk.END, "3. Protocol-Specific Details\n")
+            self.packet_text.insert(tk.END, f"{self.get_protocol_interpretation(protocol_name, src_ip, dst_ip)}\n\n")
+
+            # Add raw payload details
+            self.packet_text.insert(tk.END, "4. Raw\n")
+            self.packet_text.insert(tk.END, "   Indicates that the packet contains raw payload data.\n\n")
+
+            # Final interpretation
+            self.packet_text.insert(tk.END, "Final Interpretation:\n")
+            self.packet_text.insert(tk.END, f"Your computer ({src_ip}) is sending a packet to {dst_ip} using {protocol_name}. {self.get_final_interpretation(protocol_name, src_ip, dst_ip)}\n")
+
+    def get_protocol_description(self, protocol_name):
+        """Return a description of the protocol."""
+        descriptions = {
+            "ICMP": "Internet Control Message Protocol (Layer 3 - Network Layer)",
+            "IGMP": "Internet Group Management Protocol (Layer 3 - Network Layer)",
+            "TCP": "Transmission Control Protocol (Layer 4 - Transport Layer)",
+            "UDP": "User Datagram Protocol (Layer 4 - Transport Layer)",
+            "IPv6": "Internet Protocol Version 6 (Layer 3 - Network Layer)",
+            "ESP": "Encapsulating Security Payload (Layer 3 - Network Layer)",
+            "AH": "Authentication Header (Layer 3 - Network Layer)",
+            "OSPF": "Open Shortest Path First (Layer 3 - Network Layer)",
+            "SCTP": "Stream Control Transmission Protocol (Layer 4 - Transport Layer)",
+            "Reserved": "Reserved Protocol",
+        }
+        return descriptions.get(protocol_name, f"Unknown Protocol ({protocol_name})")
+
+    def get_protocol_interpretation(self, protocol_name, src_ip, dst_ip):
+        """Return protocol-specific details and interpretation."""
+        interpretations = {
+            "ICMP": "This packet is an ICMP message, commonly used for diagnostic or control purposes (e.g., ping).",
+            "IGMP": "This packet is an IGMP message, used for managing multicast group memberships.",
+            "TCP": "This packet is part of a TCP connection, which is a reliable, connection-oriented communication.",
+            "UDP": "This packet is a UDP datagram, which is fast, connectionless, and commonly used for real-time applications.",
+            "IPv6": "This packet uses IPv6, the next-generation Internet Protocol.",
+            "ESP": "This packet contains an Encapsulating Security Payload, used for secure communication.",
+            "AH": "This packet contains an Authentication Header, used for secure communication.",
+            "OSPF": "This packet is part of the OSPF routing protocol, used for dynamic routing in networks.",
+            "SCTP": "This packet is part of an SCTP connection, which provides reliable, message-oriented communication.",
+            "Reserved": "This packet uses a reserved protocol, which may have a specific purpose in certain contexts.",
+        }
+        return interpretations.get(protocol_name, f"This packet uses an unknown protocol ({protocol_name}). Further analysis is required.")
+
+    def get_final_interpretation(self, protocol_name, src_ip, dst_ip):
+        """Return a final interpretation of the packet's purpose."""
+        interpretations = {
+            "ICMP": f"The computer ({src_ip}) is sending an ICMP message to {dst_ip}, likely for diagnostic purposes (e.g., ping).",
+            "IGMP": f"The computer ({src_ip}) is sending an IGMP message to {dst_ip}, likely for managing multicast group memberships.",
+            "TCP": f"The computer ({src_ip}) is communicating with {dst_ip} using TCP, which is reliable and connection-oriented.",
+            "UDP": f"The computer ({src_ip}) is sending a UDP datagram to {dst_ip}, which is fast and connectionless.",
+            "IPv6": f"The computer ({src_ip}) is communicating with {dst_ip} using IPv6, the next-generation Internet Protocol.",
+            "ESP": f"The computer ({src_ip}) is sending an encrypted packet to {dst_ip} using ESP for secure communication.",
+            "AH": f"The computer ({src_ip}) is sending an authenticated packet to {dst_ip} using AH for secure communication.",
+            "OSPF": f"The computer ({src_ip}) is sending an OSPF packet to {dst_ip}, likely for dynamic routing purposes.",
+            "SCTP": f"The computer ({src_ip}) is communicating with {dst_ip} using SCTP, which provides reliable, message-oriented communication.",
+            "Reserved": f"The computer ({src_ip}) is sending a packet to {dst_ip} using a reserved protocol, which may have a specific purpose.",
+        }
+        return interpretations.get(protocol_name, f"The computer ({src_ip}) is sending a packet to {dst_ip} using an unknown protocol. Further analysis is required.")
+
     def update_ui(self):
         """Update the UI with the latest packet data."""
         self.update_traffic_trends()

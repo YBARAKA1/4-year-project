@@ -13,6 +13,17 @@ import math
 from trafficanalysis import TrafficAnalysisView  
 from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN
 from trafficanalysis import TrafficAnalysisView
+from threatalert import ThreatAlertsView
+import tkinter as tk
+import random
+import subprocess
+
+
+#===================
+#welcome
+#====================
+
+
 
 
 
@@ -171,12 +182,12 @@ class IDSDashboard:
         if view_name not in self.views:
             if view_name == "Dashboard":
                 self.views[view_name] = self.create_dashboard_view()
+            elif view_name == "PacketStream":
+                self.views[view_name] = self.create_packet_stream_view()
             elif view_name == "TrafficAnalysis":
                 self.views[view_name] = TrafficAnalysisView(self.container)
             elif view_name == "ThreatAlerts":
-                self.views[view_name] = self.create_threat_alerts_view()
-            elif view_name == "PacketStream":
-                self.views[view_name] = self.create_packet_stream_view()
+                self.views[view_name] = ThreatAlertsView(self.container)
 
         # Display the view
         self.current_view = self.views[view_name]
@@ -189,9 +200,9 @@ class IDSDashboard:
         # Left Panel - System Stats
         left_panel = ttk.Frame(frame, width=300)
         ttk.Label(left_panel, text="SYSTEM MONITOR", style="Header.TLabel").pack(pady=15)
-        self.cpu_gauge = CyberGauge(left_panel, "CPU LOAD", width=250, height=250, bg=MATRIX_BG, fg=MATRIX_GREEN)
+        self.cpu_gauge = CyberGauge(left_panel, "\nCPU LOAD", width=300, height=330, bg=MATRIX_BG, fg=MATRIX_GREEN)
         self.cpu_gauge.pack(pady=10)
-        self.mem_gauge = CyberGauge(left_panel, "MEMORY USAGE", width=250, height=250, bg=MATRIX_BG, fg=MATRIX_GREEN)
+        self.mem_gauge = CyberGauge(left_panel, "\nMEMORY USAGE", width=300, height=330, bg=MATRIX_BG, fg=MATRIX_GREEN)
         self.mem_gauge.pack(pady=10)
         ttk.Label(left_panel, text="LIVE TRAFFIC", style="Header.TLabel").pack(pady=10)
         self.net_stats = ttk.Label(left_panel, text="IN: 0.00 MB/s\nOUT: 0.00 MB/s", font=("Consolas", 10))
@@ -235,9 +246,9 @@ class IDSDashboard:
         # Navigation buttons
         buttons = [
             ("Dashboard", self.show_dashboard),
+            ("Packet Stream", self.show_packet_stream),
             ("Traffic Analysis", self.show_traffic_analysis),
             ("Threat Alerts", self.show_threat_alerts),
-            ("Packet Stream", self.show_packet_stream),
         ]
 
         for text, command in buttons:
@@ -353,16 +364,23 @@ class IDSDashboard:
         # Set the background color of the axes to black
         self.ax.set_facecolor(MATRIX_BG)
         
-        if self.detector.traffic_history['in'] or self.detector.traffic_history['out']:
+        # Ensure both traffic history arrays have the same length
+        min_length = min(len(self.detector.traffic_history['in']), len(self.detector.traffic_history['out']))
+        
+        if min_length > 0:
             # Create time axis labels (60 seconds -> now)
-            seconds_ago = list(range(len(self.detector.traffic_history['in']), 0, -1))
+            seconds_ago = list(range(min_length, 0, -1))  # Ensure seconds_ago matches the length of traffic_history
+            
+            # Slice the traffic history arrays to match the minimum length
+            incoming_traffic = self.detector.traffic_history['in'][-min_length:]
+            outgoing_traffic = self.detector.traffic_history['out'][-min_length:]
             
             # Plot both directions with clear labels
-            self.ax.plot(seconds_ago, self.detector.traffic_history['in'],
+            self.ax.plot(seconds_ago, incoming_traffic,
                         color=ACCENT_GREEN, 
                         linewidth=1.5, 
                         label='Incoming Traffic')
-            self.ax.plot(seconds_ago, self.detector.traffic_history['out'],
+            self.ax.plot(seconds_ago, outgoing_traffic,
                         color=MATRIX_GREEN,
                         linestyle='--',
                         linewidth=1.5,
@@ -380,8 +398,7 @@ class IDSDashboard:
             ], color=MATRIX_GREEN)  # Set tick label color to green
             
             # Y-axis configuration
-            max_traffic = max(max(self.detector.traffic_history['in'] or [0]), 
-                            max(self.detector.traffic_history['out'] or [0]))
+            max_traffic = max(max(incoming_traffic), max(outgoing_traffic))
             
             # Ensure the y-axis has a minimum range to avoid flat lines
             y_min = 0
@@ -449,9 +466,9 @@ class IDSDashboard:
         # Process alerts
         while not self.alert_queue.empty():
             alert = self.alert_queue.get()
-            if self.alert_tree:  # Check if alert_tree exists
-                self.alert_tree.insert("", "end", values=alert)
-                self.attack_stats[alert[1]] += 1
+            if "ThreatAlerts" in self.views:  # Check if ThreatAlerts view exists
+                self.views["ThreatAlerts"].add_alert(alert)
+            self.attack_stats[alert[1]] += 1
         
         # Process packets
         while not self.packet_queue.empty():
