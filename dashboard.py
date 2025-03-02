@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
+from login import LoginWindow 
 import psutil
 import time
 import scapy.all as scapy
@@ -10,19 +11,117 @@ import queue
 from collections import defaultdict
 import platform
 import math
+import random
+import subprocess
 from trafficanalysis import TrafficAnalysisView  
 from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN
 from trafficanalysis import TrafficAnalysisView
+from administrator import AdministratorView
 from threatalert import ThreatAlertsView
-import tkinter as tk
-import random
-import subprocess
 
+# ======================
+# Welcome Screen
+# ======================
 
-#===================
-#welcome
-#====================
+class WelcomeApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Welcome")
+        self.root.geometry("1024x768")
+        self.root.configure(bg="#1a1a1a")
 
+        # Colors
+        self.bg_color = "#1a1a1a"
+        self.text_color = "#ffffff"
+        self.accent_blue = "#00c0ff"
+        self.glitch_colors = ["#ff0000", "#00ff00", "#ffff00", "#ff00ff"]  # Red, Green, Yellow, Purple
+
+        # Create welcome label
+        self.welcome_label = tk.Label(
+            self.root,
+            text="Welcome",
+            font=("Segoe UI", 48, "bold"),
+            fg=self.accent_blue,
+            bg=self.bg_color
+        )
+        self.welcome_label.place(relx=0.5, rely=0.4, anchor=tk.CENTER)
+
+        # Start glitch effect
+        self.root.after(500, self.glitch_effect)
+
+    def glitch_effect(self, count=0):
+        """Creates a more realistic glitch effect on 'Welcome'"""
+        if count < 8:  # Run glitch effect 8 times
+            glitch_text = "Welc0m3" if count % 2 == 0 else "W3lc@me"
+            self.welcome_label.config(text=glitch_text, fg=random.choice(self.glitch_colors))
+            self.root.after(100, self.glitch_effect, count + 1)
+        else:
+            self.welcome_label.config(text="Welcome", fg=self.accent_blue)
+            self.root.after(500, self.fade_to_black)
+
+    def fade_to_black(self):
+        """Turns the screen completely black before displaying hacking effect"""
+        self.welcome_label.destroy()
+        self.root.configure(bg="black")
+        self.root.after(500, self.start_hacking_effect)
+
+    def start_hacking_effect(self):
+        """Creates a 'Matrix-style' scrolling green text effect"""
+        self.hack_texts = []
+        self.hack_canvas = tk.Canvas(self.root, bg="black", highlightthickness=0)
+        self.hack_canvas.pack(fill=tk.BOTH, expand=True)
+
+        # Generate 20+ lines of random 'hacking' text
+        self.fake_hack_lines = [
+            f"root@NIDS:~# {random.choice(['Monitoring traffic...', 'Analyzing packets...', 'Scanning for anomalies...', 'Detecting threats...'])}",
+            f"ALERT [{random.randint(1000, 9999)}]: {random.choice(['Possible DDoS attack detected', 'Suspicious SSH brute-force attempt', 'Malicious payload signature identified', 'Unauthorized access attempt'])}",
+            f"Packet Capture [{random.randint(1000, 9999)} packets] -> Logging to /var/log/nids.log...",
+            f"Snort Rule Triggered: [{random.randint(1000, 9999)}] {random.choice(['SQL Injection', 'XSS Attempt', 'Port Scanning Detected', 'Malware Communication'])}",
+            f"Source IP: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)} -> Destination IP: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"Deep Packet Inspection -> {random.choice(['Suspicious payload found', 'No anomalies detected', 'Potential exploit detected'])}",
+            f"Firewall Alert: {random.randint(10, 500)} blocked connections from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"Real-time traffic analysis: {random.randint(500, 5000)} packets/sec | {random.randint(50, 500)} anomalies detected",
+            f"Anomaly Score: {random.randint(1, 100)} | {random.choice(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])} risk",
+            f"TCP SYN Flood detected: {random.randint(1000, 9999)} requests per second",
+            f"Encrypted traffic analysis: {random.choice(['Possible TLS downgrade attack', 'Unusual SSL/TLS handshake', 'No anomalies found'])}",
+            f"Botnet C&C Communication detected: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)} -> Flagging for further analysis...",
+            f"New unauthorized MAC Address detected on network: {':'.join(['%02x' % random.randint(0, 255) for _ in range(6)])}",
+            f"IDS Log: {random.randint(10000, 99999)} new security events recorded...",
+            f"Port Scan Detected: {random.randint(20, 100)} open ports from IP {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"DNS Spoofing Attempt: Malicious DNS response from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"ARP Spoofing detected: MAC Address mismatch for {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"Syslog Alert: Unusual activity on port {random.randint(1000, 9999)}",
+            f"MITM Attack Warning: Duplicate ARP replies detected from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+        ] * 5  # Repeat for more lines
+
+        self.hack_y = 10  # Start printing from the top
+        self.type_hacking_text()
+
+    def type_hacking_text(self):
+        """Types out the fake hacking text, scrolling down"""
+        if self.fake_hack_lines:
+            text = self.fake_hack_lines.pop(0)
+            hack_label = self.hack_canvas.create_text(20, self.hack_y, anchor="w", text=text, font=("Courier", 14), fill="green")
+            self.hack_texts.append(hack_label)
+            self.hack_y += 20  # Move down for next line
+
+            # Scroll effect
+            if len(self.hack_texts) > 30:
+                self.hack_canvas.move("all", 0, -20)  # Shift all text up
+
+            self.root.after(100, self.type_hacking_text)  # Delay between lines
+        else:
+            self.root.after(1500, self.transition_to_dashboard)  # Wait before switching
+
+    def transition_to_dashboard(self):
+        """Flashes the screen and transitions to the dashboard.py file"""
+        self.hack_canvas.destroy()
+        self.root.destroy()  # Close the welcome window
+
+        # Launch the IDSDashboard
+        root = tk.Tk()
+        app = IDSDashboard(root)
+        root.mainloop()
 
 
 
@@ -112,15 +211,63 @@ class IDSDashboard:
         
         self.current_view = None
         self.views = {}  # Holds the different view frames
+        self.logged_in = False  # Track login status
         
         # Initialize packet_tree and alert_tree
         self.packet_tree = None
         self.alert_tree = None
         
+        # Add login button with theme styling
+        self.login_button = tk.Button(
+            root,
+            text="Login",
+            command=self.open_login,
+            bg=DARK_GREEN,  # Background color
+            fg=MATRIX_GREEN,  # Text color
+            font=("Consolas", 10, "bold"),  # Font
+            relief="flat",  # Remove button border
+            activebackground=DARK_GREEN,  # Background color when clicked
+            activeforeground=MATRIX_GREEN  # Text color when clicked
+        )
+        self.login_button.pack(side=tk.TOP, anchor=tk.NE, padx=10, pady=10)
+        
+        # Add hover effects to the login button
+        self.login_button.bind("<Enter>", lambda e: self.login_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+        self.login_button.bind("<Leave>", lambda e: self.login_button.config(bg=DARK_GREEN, fg=MATRIX_GREEN))
+        
         self.setup_gui()
         self.setup_threads()
         
-    # Add to IDSDashboard class
+    def open_login(self):
+        LoginWindow(self.root)  # Pass self.root instead of self
+
+    def show_view(self, view_name):
+        # Restrict access to views other than "Dashboard" if not logged in
+        if view_name != "Dashboard" and not self.logged_in:
+            messagebox.showinfo("Login Required", "Please log in first to access the rest of the features.")
+            return
+
+        # Hide current view
+        if self.current_view:
+            self.current_view.pack_forget()
+
+        # Create new view if not exists
+        if view_name not in self.views:
+            if view_name == "Dashboard":
+                self.views[view_name] = self.create_dashboard_view()
+            elif view_name == "PacketStream":
+                self.views[view_name] = self.create_packet_stream_view()
+            elif view_name == "TrafficAnalysis":
+                self.views[view_name] = TrafficAnalysisView(self.container)
+            elif view_name == "ThreatAlerts":
+                self.views[view_name] = ThreatAlertsView(self.container)
+            elif view_name == "Administrator":
+                self.views[view_name] = AdministratorView(self.container)
+
+        # Display the view
+        self.current_view = self.views[view_name]
+        self.current_view.pack(fill=tk.BOTH, expand=True)
+        
     def setup_threads(self):
         def sniff_packets():
             while True:
@@ -139,6 +286,34 @@ class IDSDashboard:
 
         # GUI update thread
         self.root.after(1000, self.update_gui)
+        
+        
+
+    def show_view(self, view_name):
+        if view_name != "Dashboard" and not self.logged_in:
+            messagebox.showinfo("Login Required", "Please log in to access this feature.")
+            return
+
+        # Hide current view
+        if self.current_view:
+            self.current_view.pack_forget()
+
+        # Create new view if not exists
+        if view_name not in self.views:
+            if view_name == "Dashboard":
+                self.views[view_name] = self.create_dashboard_view()
+            elif view_name == "PacketStream":
+                self.views[view_name] = self.create_packet_stream_view()
+            elif view_name == "TrafficAnalysis":
+                self.views[view_name] = TrafficAnalysisView(self.container)
+            elif view_name == "ThreatAlerts":
+                self.views[view_name] = ThreatAlertsView(self.container)
+            elif view_name == "Administrator":
+                self.views[view_name] = AdministratorView(self.container)
+
+        # Display the view
+        self.current_view = self.views[view_name]
+        self.current_view.pack(fill=tk.BOTH, expand=True)
 
     def setup_gui(self):
         self.root.title("MATRIX IDS 2.0")
@@ -188,6 +363,8 @@ class IDSDashboard:
                 self.views[view_name] = TrafficAnalysisView(self.container)
             elif view_name == "ThreatAlerts":
                 self.views[view_name] = ThreatAlertsView(self.container)
+            elif view_name == "Administrator":
+                self.views[view_name] = AdministratorView(self.container)
 
         # Display the view
         self.current_view = self.views[view_name]
@@ -249,6 +426,7 @@ class IDSDashboard:
             ("Packet Stream", self.show_packet_stream),
             ("Traffic Analysis", self.show_traffic_analysis),
             ("Threat Alerts", self.show_threat_alerts),
+            ("Administrator", self.show_admin_page),
         ]
 
         for text, command in buttons:
@@ -258,6 +436,8 @@ class IDSDashboard:
 
         # Initially show the sidebar
         self.sidebar_visible = True
+    
+    
 
     def toggle_sidebar(self):
         if self.sidebar_visible:
@@ -282,6 +462,10 @@ class IDSDashboard:
 
     def show_packet_stream(self):
         self.show_view("PacketStream")
+        
+    def show_admin_page(self):
+        self.show_view("Administrator")
+        
 
     def setup_left_panel(self, parent):
         # System Monitoring
@@ -577,5 +761,5 @@ class CyberGauge(tk.Canvas):
 
 if __name__ == "__main__":
     root = tk.Tk()
-    app = IDSDashboard(root)
+    welcome_app = WelcomeApp(root)  
     root.mainloop()

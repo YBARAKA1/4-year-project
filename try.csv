@@ -1,0 +1,8 @@
+Time,IP,Threat Type,Severity,Status,Location
+08:33:33,58.253.135.167,DDoS,Low,Active,"Guangzhou, China"
+08:33:42,19.150.197.198,DDoS,Medium,Active,"Dearborn, United States"
+08:33:49,204.134.97.59,Malware,High,Active,"Stockholm, Sweden"
+08:33:57,76.31.153.202,DDoS,High,Active,"Missouri City, United States"
+08:34:07,53.4.200.228,Ransomware,Low,Active,"Stuttgart, Germany"
+08:34:13,18.224.86.7,DDoS,High,Active,"Dublin, United States"
+08:34:19,43.62.239.227,Ransomware,Medium,Active,"Beijing, China"

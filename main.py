@@ -51,18 +51,29 @@ class WelcomeApp:
         self.hack_canvas.pack(fill=tk.BOTH, expand=True)
 
         # Generate 20+ lines of random 'hacking' text
+
         self.fake_hack_lines = [
-            f"root@server:~# {random.choice(['Scanning...', 'Decrypting...', 'Accessing...', 'Override Sequence...'])}",
-            f"0x{random.randint(100000, 999999):X} [{random.choice(['OK', 'FAILED', 'RUNNING'])}]",
-            f"sys.log -> {random.randint(1000, 9999)} entries processed...",
-            f"kernel32.dll -> {random.choice(['Access Granted', 'Access Denied'])}",
-            f"fetching /etc/passwd...",
-            f"sudo chmod +x hack.sh",
-            f"mkdir /root/secrets/",
-            f"rm -rf /var/logs/",
-            f"Initializing rootkit...",
-            f"PORT SCAN: {random.randint(1000, 9999)} open",
-        ] * 5  # Repeat the list for more lines
+            f"root@NIDS:~# {random.choice(['Monitoring traffic...', 'Analyzing packets...', 'Scanning for anomalies...', 'Detecting threats...'])}",
+            f"ALERT [{random.randint(1000, 9999)}]: {random.choice(['Possible DDoS attack detected', 'Suspicious SSH brute-force attempt', 'Malicious payload signature identified', 'Unauthorized access attempt'])}",
+            f"Packet Capture [{random.randint(1000, 9999)} packets] -> Logging to /var/log/nids.log...",
+            f"Snort Rule Triggered: [{random.randint(1000, 9999)}] {random.choice(['SQL Injection', 'XSS Attempt', 'Port Scanning Detected', 'Malware Communication'])}",
+            f"Source IP: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)} -> Destination IP: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"Deep Packet Inspection -> {random.choice(['Suspicious payload found', 'No anomalies detected', 'Potential exploit detected'])}",
+            f"Firewall Alert: {random.randint(10, 500)} blocked connections from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"Real-time traffic analysis: {random.randint(500, 5000)} packets/sec | {random.randint(50, 500)} anomalies detected",
+            f"Anomaly Score: {random.randint(1, 100)} | {random.choice(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])} risk",
+            f"TCP SYN Flood detected: {random.randint(1000, 9999)} requests per second",
+            f"Encrypted traffic analysis: {random.choice(['Possible TLS downgrade attack', 'Unusual SSL/TLS handshake', 'No anomalies found'])}",
+            f"Botnet C&C Communication detected: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)} -> Flagging for further analysis...",
+            f"New unauthorized MAC Address detected on network: {':'.join(['%02x' % random.randint(0, 255) for _ in range(6)])}",
+            f"IDS Log: {random.randint(10000, 99999)} new security events recorded...",
+            f"Port Scan Detected: {random.randint(20, 100)} open ports from IP {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"DNS Spoofing Attempt: Malicious DNS response from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"ARP Spoofing detected: MAC Address mismatch for {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"Syslog Alert: Unusual activity on port {random.randint(1000, 9999)}",
+            f"MITM Attack Warning: Duplicate ARP replies detected from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+        ] * 5  # Repeat for more lines
+
 
         self.hack_y = 10  # Start printing from the top
         self.type_hacking_text()
