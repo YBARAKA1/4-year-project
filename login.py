@@ -8,7 +8,9 @@ import random
 import string
 from dotenv import load_dotenv
 import os
+import threading  # For background email sending
 from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG  # Import theme colors
+
 
 # Load environment variables
 load_dotenv()
@@ -29,29 +31,33 @@ EMAIL_PORT = int(os.getenv("EMAIL_PORT"))
 EMAIL_USER = os.getenv("EMAIL_USER")
 EMAIL_PASSWORD = os.getenv("EMAIL_PASSWORD")
 
-# Generate OTP
-def generate_otp():
-    return ''.join(random.choices(string.digits, k=6))
+# Generate alphanumeric token
+def generate_token():
+    chars = string.ascii_uppercase + string.digits  # Combine letters and numbers
+    return ''.join(random.choices(chars, k=8))  # 8-character token
 
-# Send OTP via email
-def send_otp_email(email, otp):
-    try:
-        msg = MIMEMultipart()
-        msg['From'] = EMAIL_USER
-        msg['To'] = email
-        msg['Subject'] = "Your One-Time Password (OTP)"
-        body = f"Your OTP is: {otp}"
-        msg.attach(MIMEText(body, 'plain'))
+# Send email in background to prevent GUI freezing
+def send_email_async(to_email, subject, body):
+    def send_task():
+        print(f"[DEBUG] Starting email send to {to_email}")
+        try:
+            msg = MIMEMultipart()
+            msg['From'] = EMAIL_USER
+            msg['To'] = to_email
+            msg['Subject'] = subject
+            msg.attach(MIMEText(body, 'plain'))
 
-        server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
-        server.starttls()
-        server.login(EMAIL_USER, EMAIL_PASSWORD)
-        server.sendmail(EMAIL_USER, email, msg.as_string())
-        server.quit()
-        return True
-    except Exception as e:
-        print(f"Error sending email: {e}")
-        return False
+            server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
+            server.starttls()
+            server.login(EMAIL_USER, EMAIL_PASSWORD)
+            server.sendmail(EMAIL_USER, to_email, msg.as_string())
+            server.quit()
+            print(f"[DEBUG] Email sent successfully to {to_email}")
+        except Exception as e:
+            print(f"[ERROR] Failed to send email to {to_email}: {e}")
+
+    # Run email sending in a separate thread
+    threading.Thread(target=send_task, daemon=True).start()
 
 # Login Window
 class LoginWindow(tk.Toplevel):
@@ -72,9 +78,9 @@ class LoginWindow(tk.Toplevel):
         self.email_entry = tk.Entry(self, **entry_style)
         self.email_entry.pack(pady=5)
 
-        # OTP Label and Entry (initially hidden)
-        self.otp_label = tk.Label(self, text="OTP:", **label_style)
-        self.otp_entry = tk.Entry(self, **entry_style)
+        # Token Label and Entry (initially hidden)
+        self.token_label = tk.Label(self, text="Token:", **label_style)
+        self.token_entry = tk.Entry(self, **entry_style)
 
         # Login Button
         self.login_button = tk.Button(self, text="Next", command=self.check_email, **button_style)
@@ -90,52 +96,92 @@ class LoginWindow(tk.Toplevel):
         self.signup_button.bind("<Enter>", lambda e: self.signup_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
         self.signup_button.bind("<Leave>", lambda e: self.signup_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
 
+        print("[DEBUG] LoginWindow initialized")
+
     def check_email(self):
         email = self.email_entry.get()
+        print(f"[DEBUG] Checking email: {email}")
 
         if not email:
             messagebox.showerror("Error", "Please enter your email.")
             return
 
-        conn = get_db_connection()
-        cur = conn.cursor()
-        cur.execute("SELECT status FROM users WHERE email = %s", (email,))
-        result = cur.fetchone()
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            print("[DEBUG] Database connection established")
 
-        if not result:
-            messagebox.showerror("Error", "Email not found. Please sign up or use correct details.")
-            return
+            # Check if user exists and is approved
+            cur.execute("SELECT status FROM users WHERE email = %s", (email,))
+            result = cur.fetchone()
 
-        status = result[0]
-        if status != 'approved':
-            messagebox.showinfo("Pending Approval", "Your account is still pending approval. Please wait for admin approval.")
-            return
+            if not result:
+                messagebox.showerror("Error", "Email not found. Please sign up or use correct details.")
+                return
 
-        # If approved, show OTP fields
-        self.otp_label.pack(pady=5)
-        self.otp_entry.pack(pady=5)
-        self.login_button.config(text="Login", command=self.login)
+            status = result[0]
+            if status != 'approved':
+                messagebox.showinfo("Pending Approval", "Your account is still pending approval. Please wait for admin approval.")
+                return
 
-        # Send OTP
-        self.otp = generate_otp()
-        if not send_otp_email(email, self.otp):
-            messagebox.showerror("Error", "Failed to send OTP. Please try again.")
+            # Generate and store token
+            token = generate_token()
+            print(f"[DEBUG] Generated token: {token}")
+            cur.execute("UPDATE users SET token = %s, token_created_at = NOW() WHERE email = %s",
+                        (token, email))
+            conn.commit()
+            print("[DEBUG] Token stored in database")
+
+            # Show token fields
+            self.token_label.pack(pady=5)
+            self.token_entry.pack(pady=5)
+            self.login_button.config(text="Login", command=self.login)
+
+            # Send token via email in background
+            send_email_async(email, "Your Login Token", f"Your token is: {token}")
+
+        except Exception as e:
+            print(f"[ERROR] Database error: {str(e)}")
+            messagebox.showerror("Error", "Database operation failed")
+        finally:
+            cur.close()
+            conn.close()
+            print("[DEBUG] Database connection closed")
 
     def login(self):
         email = self.email_entry.get()
-        otp = self.otp_entry.get()
+        entered_token = self.token_entry.get()
+        print(f"[DEBUG] Attempting login for {email} with token: {entered_token}")
 
-        if not email or not otp:
-            messagebox.showerror("Error", "Please enter both email and OTP.")
+        if not email or not entered_token:
+            messagebox.showerror("Error", "Please enter both email and token.")
             return
 
-        if otp != self.otp:
-            messagebox.showerror("Error", "Invalid OTP.")
-            return
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            print("[DEBUG] Verifying token in database")
 
-        messagebox.showinfo("Success", "Logged in successfully!")
-        self.parent.logged_in = True  # Update login status
-        self.destroy()
+            cur.execute("SELECT token FROM users WHERE email = %s", (email,))
+            result = cur.fetchone()
+
+            if not result or result[0] != entered_token:
+                print(f"[AUTH] Invalid token for {email}")
+                messagebox.showerror("Error", "Invalid token.")
+                return
+
+            print("[AUTH] Login successful")
+            messagebox.showinfo("Success", "Logged in successfully!")
+            self.parent.logged_in = True  # Update login status
+            self.destroy()
+
+        except Exception as e:
+            print(f"[ERROR] Login failed: {str(e)}")
+            messagebox.showerror("Error", "Login failed")
+        finally:
+            cur.close()
+            conn.close()
+            print("[DEBUG] Database connection closed")
 
     def open_signup(self):
         SignUpWindow(self)
@@ -182,37 +228,64 @@ class SignUpWindow(tk.Toplevel):
         self.signup_button = tk.Button(self, text="Sign Up", command=self.signup, **button_style)
         self.signup_button.pack(pady=10)
 
-    
     def signup(self):
         first_name = self.first_name_entry.get()
         last_name = self.last_name_entry.get()
         email = self.email_entry.get()
         dob = self.dob_entry.get()
         purpose = self.purpose_entry.get()
+        print(f"[DEBUG] Attempting signup for {email}")
 
         if not all([first_name, last_name, email, dob, purpose]):
             messagebox.showerror("Error", "Please fill in all fields.")
             return
 
-        conn = get_db_connection()
-        cur = conn.cursor()
         try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            print("[DEBUG] Starting database insert")
+
+            # Generate initial token
+            token = generate_token()
+            print(f"[DEBUG] Generated signup token: {token}")
+
             cur.execute(
-                "INSERT INTO users (first_name, last_name, email, dob, purpose, status) VALUES (%s, %s, %s, %s, %s, 'pending')",
-                (first_name, last_name, email, dob, purpose)
+                "INSERT INTO users (first_name, last_name, email, dob, purpose, status, token) "
+                "VALUES (%s, %s, %s, %s, %s, 'pending', %s)",
+                (first_name, last_name, email, dob, purpose, token)
             )
             conn.commit()
+            print("[DEBUG] User record created")
 
-            # Notify admin
-            admin_email = "admin@example.com"
-            subject = "New User Sign-Up"
-            body = f"New user: {first_name} {last_name}\nEmail: {email}\nPurpose: {purpose}"
-            send_otp_email(admin_email, body)
+            # Send notifications
+            admin_msg = f"New user: {first_name} {last_name}\nEmail: {email}\nToken: {token}"
+            send_email_async("jeff@integral.co.ke", "New Signup Request", admin_msg)
+            send_email_async(email, "Your Account Pending", "Your account is awaiting approval")
 
-            messagebox.showinfo("Success", "Sign-up successful! Please wait for admin approval.")
+            print("[DEBUG] Signup process completed")
+            messagebox.showinfo("Success", "Sign-up successful! Awaiting admin approval.")
             self.destroy()
+
         except psycopg2.IntegrityError:
-            messagebox.showerror("Error", "Email already exists.")
+            print("[ERROR] Duplicate email attempt")
+            messagebox.showerror("Error", "Email already exists")
+        except Exception as e:
+            print(f"[ERROR] Signup failed: {str(e)}")
+            messagebox.showerror("Error", "Signup failed")
         finally:
             cur.close()
             conn.close()
+            print("[DEBUG] Database connection closed")
+
+# Main Application
+class Application(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.logged_in = False
+        self.title("IDS Login System")
+        self.geometry("600x400")
+        LoginWindow(self)
+
+if __name__ == "__main__":
+    app = Application()
+    app.mainloop()

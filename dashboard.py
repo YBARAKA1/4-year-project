@@ -16,7 +16,7 @@ import subprocess
 from trafficanalysis import TrafficAnalysisView  
 from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN
 from trafficanalysis import TrafficAnalysisView
-from administrator import AdministratorView
+from administrator import AdminDashboard
 from threatalert import ThreatAlertsView
 
 # ======================
@@ -262,7 +262,7 @@ class IDSDashboard:
             elif view_name == "ThreatAlerts":
                 self.views[view_name] = ThreatAlertsView(self.container)
             elif view_name == "Administrator":
-                self.views[view_name] = AdministratorView(self.container)
+                self.views[view_name] = AdminDashboard(self.container)
 
         # Display the view
         self.current_view = self.views[view_name]
@@ -309,7 +309,7 @@ class IDSDashboard:
             elif view_name == "ThreatAlerts":
                 self.views[view_name] = ThreatAlertsView(self.container)
             elif view_name == "Administrator":
-                self.views[view_name] = AdministratorView(self.container)
+                self.views[view_name] = AdminDashboard(self.container)
 
         # Display the view
         self.current_view = self.views[view_name]
@@ -364,7 +364,7 @@ class IDSDashboard:
             elif view_name == "ThreatAlerts":
                 self.views[view_name] = ThreatAlertsView(self.container)
             elif view_name == "Administrator":
-                self.views[view_name] = AdministratorView(self.container)
+                self.views[view_name] = AdminDashboard(self.container)
 
         # Display the view
         self.current_view = self.views[view_name]
