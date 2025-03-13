@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 import psycopg2
 from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG, RED, GREEN
+from login import LoginWindow
 
 # Database connection
 def get_db_connection():
@@ -18,8 +19,6 @@ class AdminDashboard(tk.Frame):
     def __init__(self, parent):
         super().__init__(parent)
         self.parent = parent
-        self.title("Admin Dashboard")
-        self.geometry("1000x600")
         self.configure(bg=MATRIX_BG)  # Matrix background
 
         # Configure styles
@@ -50,7 +49,7 @@ class AdminDashboard(tk.Frame):
 
         # Load pending sign-ups
         self.load_pending_signups()
-
+        
     def load_pending_signups(self):
         """Load pending sign-ups from the database into the listbox."""
         self.pending_listbox.delete(0, tk.END)  # Clear existing items
@@ -158,13 +157,18 @@ class AdminLoginWindow(tk.Toplevel):
         self.login_button.bind("<Enter>", lambda e: self.login_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
         self.login_button.bind("<Leave>", lambda e: self.login_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
 
-    def login(self):
-        username = self.username_entry.get()
-        password = self.password_entry.get()
-
-        # Hardcoded admin credentials (replace with secure authentication)
-        if username == "admin" and password == "admin123":
-            self.destroy()
-            AdminDashboard(self.parent)  # Open the admin dashboard
+    def open_login(self):
+        """Open the login window and handle login success."""
+        login_window = LoginWindow(self.root)
+        self.root.wait_window(login_window)  # Wait for the login window to close
+        
+        # Check if login was successful
+        if login_window.logged_in:  # Now this will work
+            self.logged_in = True
+            self.login_button.config(text="Logout", command=self.logout)  # Change button to logout
+            self.enable_sidebar_buttons()  # Enable all sidebar buttons
+            messagebox.showinfo("Login Successful", "You have successfully logged in!")
         else:
-            messagebox.showerror("Error", "Invalid username or password.", parent=self)
+            self.logged_in = False
+            self.login_button.config(text="Login", command=self.open_login)  # Reset button to login
+            self.disable_sidebar_buttons()  # Disable all sidebar buttons except Dashboard

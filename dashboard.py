@@ -239,12 +239,44 @@ class IDSDashboard:
         self.setup_threads()
         
     def open_login(self):
-        LoginWindow(self.root)  # Pass self.root instead of self
+        """Open the login window and handle login success."""
+        login_window = LoginWindow(self.root)
+        self.root.wait_window(login_window)  # Wait for the login window to close
+        
+        # Check if login was successful
+        if login_window.logged_in:
+            self.logged_in = True
+            self.login_button.config(text="Logout", command=self.logout)  # Change button to logout
+            self.enable_sidebar_buttons()  # Enable all sidebar buttons
+            messagebox.showinfo("Login Successful", "You have successfully logged in!")
+        else:
+            self.logged_in = False
+            self.login_button.config(text="Login", command=self.open_login)  # Reset button to login
+            self.disable_sidebar_buttons()  # Disable all sidebar buttons except Dashboard
+            
+    def logout(self):
+        """Log out the user and restrict access to other pages."""
+        self.logged_in = False
+        self.login_button.config(text="Login", command=self.open_login)  # Reset button to login
+        self.disable_sidebar_buttons()  # Disable all sidebar buttons except Dashboard
+        self.show_view("Dashboard")  # Switch back to the Dashboard
+        messagebox.showinfo("Logged Out", "You have been logged out.")
+        
+    def disable_sidebar_buttons(self):
+        """Disable all sidebar buttons except the Dashboard button."""
+        for button in self.sidebar_buttons:
+            if button["text"] != "Dashboard":
+                button.config(state=tk.DISABLED)  # Disable the button
+                
+    def enable_sidebar_buttons(self):
+        """Enable all sidebar buttons after successful login."""
+        for button in self.sidebar_buttons:
+            button.config(state=tk.NORMAL)  # Enable the button
 
     def show_view(self, view_name):
-        # Restrict access to views other than "Dashboard" if not logged in
+        """Show the specified view, but restrict access if not logged in."""
         if view_name != "Dashboard" and not self.logged_in:
-            messagebox.showinfo("Login Required", "Please log in first to access the rest of the features.")
+            messagebox.showinfo("Login Required", "Please log in to access this feature.")
             return
 
         # Hide current view
@@ -290,6 +322,7 @@ class IDSDashboard:
         
 
     def show_view(self, view_name):
+        """Show the specified view, but restrict access if not logged in."""
         if view_name != "Dashboard" and not self.logged_in:
             messagebox.showinfo("Login Required", "Please log in to access this feature.")
             return
@@ -349,6 +382,11 @@ class IDSDashboard:
         self.show_view("Dashboard")
         
     def show_view(self, view_name):
+        """Show the specified view, but restrict access if not logged in."""
+        if view_name != "Dashboard" and not self.logged_in:
+            messagebox.showinfo("Login Required", "Please log in to access this feature.")
+            return
+
         # Hide current view
         if self.current_view:
             self.current_view.pack_forget()
@@ -429,10 +467,17 @@ class IDSDashboard:
             ("Administrator", self.show_admin_page),
         ]
 
+        # Store sidebar buttons for enabling/disabling
+        self.sidebar_buttons = []
         for text, command in buttons:
             button = ttk.Button(parent, text=text, style="Sidebar.TButton",
                                 command=command)
             button.pack(pady=5, fill=tk.X)
+            self.sidebar_buttons.append(button)
+
+        # Initially disable all buttons except Dashboard
+        self.disable_sidebar_buttons()
+        self.sidebar_buttons[0].config(state=tk.NORMAL)  # Enable Dashboard button
 
         # Initially show the sidebar
         self.sidebar_visible = True
@@ -464,6 +509,8 @@ class IDSDashboard:
         self.show_view("PacketStream")
         
     def show_admin_page(self):
+        """Show the Admin Dashboard view."""
+        self.root.title("Admin Dashboard")  # Set the window title
         self.show_view("Administrator")
         
 

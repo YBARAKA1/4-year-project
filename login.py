@@ -15,6 +15,7 @@ from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_
 # Load environment variables
 load_dotenv()
 
+
 # Database connection
 def get_db_connection():
     return psycopg2.connect(
@@ -47,8 +48,7 @@ def send_email_async(to_email, subject, body):
             msg['Subject'] = subject
             msg.attach(MIMEText(body, 'plain'))
 
-            server = smtplib.SMTP(EMAIL_HOST, EMAIL_PORT)
-            server.starttls()
+            server = smtplib.SMTP_SSL(EMAIL_HOST, EMAIL_PORT)  # Use SMTP_SSL for port 465
             server.login(EMAIL_USER, EMAIL_PASSWORD)
             server.sendmail(EMAIL_USER, to_email, msg.as_string())
             server.quit()
@@ -56,7 +56,6 @@ def send_email_async(to_email, subject, body):
         except Exception as e:
             print(f"[ERROR] Failed to send email to {to_email}: {e}")
 
-    # Run email sending in a separate thread
     threading.Thread(target=send_task, daemon=True).start()
 
 # Login Window
@@ -67,6 +66,7 @@ class LoginWindow(tk.Toplevel):
         self.title("Login")
         self.geometry("500x500")
         self.configure(bg=MATRIX_BG)  # Set background color
+        self.logged_in = False
 
         # Configure styles
         label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 10)}
@@ -172,8 +172,8 @@ class LoginWindow(tk.Toplevel):
 
             print("[AUTH] Login successful")
             messagebox.showinfo("Success", "Logged in successfully!")
-            self.parent.logged_in = True  # Update login status
-            self.destroy()
+            self.logged_in = True  # Set logged_in to True
+            self.destroy()  # Close the login window
 
         except Exception as e:
             print(f"[ERROR] Login failed: {str(e)}")
