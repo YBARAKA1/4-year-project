@@ -39,7 +39,7 @@ class WelcomeApp:
         # Create welcome label
         self.welcome_label = tk.Label(
             self.root,
-            text="Welcome",
+            text="Network IDS",
             font=("Segoe UI", 48, "bold"),
             fg=self.accent_blue,
             bg=self.bg_color
@@ -52,7 +52,7 @@ class WelcomeApp:
     def glitch_effect(self, count=0):
         """Creates a more realistic glitch effect on 'Welcome'"""
         if count < 8:  # Run glitch effect 8 times
-            glitch_text = "Welc0m3" if count % 2 == 0 else "W3lc@me"
+            glitch_text = "N3tw@rk 1D$  " if count % 2 == 0 else "n3tm07sk I96"
             self.welcome_label.config(text=glitch_text, fg=random.choice(self.glitch_colors))
             self.root.after(100, self.glitch_effect, count + 1)
         else:
@@ -653,10 +653,17 @@ class IDSDashboard:
                 ], color=MATRIX_GREEN)  # Set tick label color to green
             
             # Reapply styling after clear
-            self.ax.set_xlabel("Time Progression (60 Second Window)", 
-                            color=MATRIX_GREEN)
-            self.ax.set_ylabel("Network Traffic (Megabytes per Second)",
-                            color=MATRIX_GREEN)
+            self.ax.set_xlabel("Time Progression (60 Second Window)\n"
+                        "Left (60s ago) → Right (Current Moment)", 
+                        color=MATRIX_GREEN,  # Set label color to green
+                        fontsize=10,
+                        labelpad=10)
+            self.ax.set_ylabel("Network Traffic (Megabytes per Second)\n"
+                        "Volume of Data Transferred (Incoming/Outgoing)", 
+                        color=MATRIX_GREEN,  # Set label color to green
+                        fontsize=10,
+                        labelpad=10)
+        
             self.ax.tick_params(axis='both', colors=MATRIX_GREEN)
             for spine in self.ax.spines.values():
                 spine.set_color(MATRIX_GREEN)

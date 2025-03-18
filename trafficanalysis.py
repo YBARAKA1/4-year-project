@@ -510,10 +510,15 @@ class TrafficAnalysisView(ttk.Frame):
             self.packet_text.insert(tk.END, "4. Raw\n")
             self.packet_text.insert(tk.END, "   Indicates that the packet contains raw payload data.\n\n")
 
-            # Final interpretation
+            # Final Interpretation
             self.packet_text.insert(tk.END, "Final Interpretation:\n")
-            self.packet_text.insert(tk.END, f"Your computer ({src_ip}) is sending a packet to {dst_ip} using {protocol_name}. {self.get_final_interpretation(protocol_name, src_ip, dst_ip)}\n")
+            self.packet_text.insert(
+                tk.END,
+                #f"The captured packet represents a {protocol_name} communication from {src_ip} to {dst_ip}. "
+                f"{self.get_final_interpretation(protocol_name, src_ip, dst_ip, size)}\n"
+            )
 
+            
     def get_protocol_description(self, protocol_name):
         """Return a description of the protocol."""
         descriptions = {
@@ -530,7 +535,7 @@ class TrafficAnalysisView(ttk.Frame):
         }
         return descriptions.get(protocol_name, f"Unknown Protocol ({protocol_name})")
 
-    def get_protocol_interpretation(self, protocol_name, src_ip, dst_ip):
+    def get_protocol_interpretation(self, protocol_name, src_ip, dst_ip,):
         """Return protocol-specific details and interpretation."""
         interpretations = {
             "ICMP": "This packet is an ICMP message, commonly used for diagnostic or control purposes (e.g., ping).",
@@ -546,22 +551,24 @@ class TrafficAnalysisView(ttk.Frame):
         }
         return interpretations.get(protocol_name, f"This packet uses an unknown protocol ({protocol_name}). Further analysis is required.")
 
-    def get_final_interpretation(self, protocol_name, src_ip, dst_ip):
-        """Return a final interpretation of the packet's purpose."""
+    def get_final_interpretation(self, protocol_name, src_ip, dst_ip, size):
+        """Return a structured final interpretation of the packet's purpose."""
         interpretations = {
-            "ICMP": f"The computer ({src_ip}) is sending an ICMP message to {dst_ip}, likely for diagnostic purposes (e.g., ping).",
-            "IGMP": f"The computer ({src_ip}) is sending an IGMP message to {dst_ip}, likely for managing multicast group memberships.",
-            "TCP": f"The computer ({src_ip}) is communicating with {dst_ip} using TCP, which is reliable and connection-oriented.",
-            "UDP": f"The computer ({src_ip}) is sending a UDP datagram to {dst_ip}, which is fast and connectionless.",
-            "IPv6": f"The computer ({src_ip}) is communicating with {dst_ip} using IPv6, the next-generation Internet Protocol.",
-            "ESP": f"The computer ({src_ip}) is sending an encrypted packet to {dst_ip} using ESP for secure communication.",
-            "AH": f"The computer ({src_ip}) is sending an authenticated packet to {dst_ip} using AH for secure communication.",
-            "OSPF": f"The computer ({src_ip}) is sending an OSPF packet to {dst_ip}, likely for dynamic routing purposes.",
-            "SCTP": f"The computer ({src_ip}) is communicating with {dst_ip} using SCTP, which provides reliable, message-oriented communication.",
-            "Reserved": f"The computer ({src_ip}) is sending a packet to {dst_ip} using a reserved protocol, which may have a specific purpose.",
+            "ICMP": f"The captured packet represents an ICMP communication from {src_ip} to {dst_ip}, typically used for network diagnostics like ping or traceroute. If expected, this is a normal operation; however, unexpected ICMP traffic could indicate network probing or a reconnaissance attempt.",
+            "IGMP": f"The captured packet represents an IGMP communication from {src_ip} to {dst_ip}, likely for managing multicast group memberships. This is commonly used for streaming services and efficient network broadcasting.",
+            "TCP": f"The captured packet represents a TCP communication from {src_ip} to {dst_ip}, indicating an attempt to establish a reliable connection. Since TCP is connection-oriented, this could be part of a legitimate session or an unauthorized access attempt. Given the packet size of {size} bytes, it might be a control message such as a SYN request or ACK response. If unexpected, this traffic could indicate a potential intrusion or port scanning attempt, requiring further investigation.",
+            "UDP": f"The captured packet represents a UDP communication from {src_ip} to {dst_ip}, which is a connectionless protocol often used for fast data transmission. Since UDP lacks reliability checks, this packet might be part of normal traffic such as DNS queries or VoIP, but if unexpected, it could indicate a scanning attempt or potential DDoS activity.",
+            "IPv6": f"The captured packet represents an IPv6 communication from {src_ip} to {dst_ip}, using the next-generation Internet Protocol. If expected, this is normal network activity, but unexpected IPv6 traffic might indicate a misconfiguration or an attempt to bypass security filters.",
+            "ESP": f"The captured packet represents an encrypted ESP (Encapsulating Security Payload) communication from {src_ip} to {dst_ip}, used in IPsec for secure data transmission. If expected, this is part of a secure VPN or encrypted communication, but unexpected ESP packets could indicate unauthorized tunneling attempts.",
+            "AH": f"The captured packet represents an authenticated AH (Authentication Header) communication from {src_ip} to {dst_ip}, ensuring integrity and authentication in an IPsec security framework. If this is unexpected, it could indicate an attempt to manipulate secure network traffic.",
+            "OSPF": f"The captured packet represents an OSPF (Open Shortest Path First) communication from {src_ip} to {dst_ip}, which is used for dynamic routing. If this traffic is unexpected, it could indicate unauthorized routing updates or a network misconfiguration.",
+            "SCTP": f"The captured packet represents an SCTP communication from {src_ip} to {dst_ip}, commonly used in telecommunications for reliable and message-oriented data transmission. If unexpected, it could indicate an unauthorized connection attempt.",
+            "Reserved": f"The captured packet represents a communication from {src_ip} to {dst_ip} using a reserved protocol. This might be part of a specialized service, but if unexpected, further analysis is required to determine its purpose."
         }
-        return interpretations.get(protocol_name, f"The computer ({src_ip}) is sending a packet to {dst_ip} using an unknown protocol. Further analysis is required.")
+        
+        return interpretations.get(protocol_name, f"The captured packet represents a communication from {src_ip} to {dst_ip} using an unknown protocol. Further analysis is required to determine its intent.")
 
+    
     def update_ui(self):
         """Update the UI with the latest packet data."""
         self.update_traffic_trends()
