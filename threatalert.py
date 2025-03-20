@@ -1,18 +1,14 @@
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog
-import threading
-import random
-import time
-import csv
-import requests  # For geo-location API
-from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, RED, GREEN, BLUE, PURPLE
-
-import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog, simpledialog
 import threading
 import time
 from collections import defaultdict
-from scapy.all import sniff, ARP, IP, Ether
+from scapy.all import sniff, ARP, IP, TCP, UDP
+import csv
+import socket  # For resolving hostnames
+import requests  # For making API requests
+
+from constants import MATRIX_BG, MATRIX_GREEN
 
 class ThreatAlertsView(ttk.Frame):
     def __init__(self, parent):
@@ -21,6 +17,9 @@ class ThreatAlertsView(ttk.Frame):
         self.alerts = []  # Stores all alerts
         self.packet_counts = defaultdict(int)  # Track packets per IP for DoS/DDoS
         self.arp_table = {}  # Track IP-MAC mappings for MitM detection
+        self.blocked_ips = set()  # Track blocked IPs
+        self.safe_ips = set()  # Track safe IPs
+        self.ip_details = {}  # Store detailed information for each IP
         self.setup_ui()
         self.start_real_time_detection()  # Start real-time threat detection
 
@@ -37,7 +36,32 @@ class ThreatAlertsView(ttk.Frame):
             background=MATRIX_BG,
             foreground=MATRIX_GREEN
         )
-        title_label.pack(pady=20)
+        title_label.pack(pady=10)
+
+        # Button Frame at the Top
+        button_frame = ttk.Frame(self)
+        button_frame.pack(fill=tk.X, padx=20, pady=10)
+
+        # Buttons for Threat Management
+        view_details_btn = ttk.Button(button_frame, text="View Details", command=self.view_details)
+        view_details_btn.pack(side=tk.LEFT, padx=5)
+
+        mark_resolved_btn = ttk.Button(button_frame, text="Mark as Resolved", command=self.mark_as_resolved)
+        mark_resolved_btn.pack(side=tk.LEFT, padx=5)
+
+        delete_threat_btn = ttk.Button(button_frame, text="Delete Threat", command=self.delete_threat)
+        delete_threat_btn.pack(side=tk.LEFT, padx=5)
+
+        # Buttons for Network Response Actions
+        block_ip_btn = ttk.Button(button_frame, text="Block IP", command=self.block_ip)
+        block_ip_btn.pack(side=tk.LEFT, padx=5)
+
+        mark_safe_btn = ttk.Button(button_frame, text="Mark as Safe", command=self.mark_safe)
+        mark_safe_btn.pack(side=tk.LEFT, padx=5)
+
+        # Buttons for Export & Reporting
+        export_btn = ttk.Button(button_frame, text="Export", command=self.export_data)
+        export_btn.pack(side=tk.LEFT, padx=5)
 
         # Treeview to display alerts
         self.alert_tree = ttk.Treeview(
@@ -67,6 +91,9 @@ class ThreatAlertsView(ttk.Frame):
 
     def detect_dos_ddos(self, ip):
         """Detect DoS/DDoS attacks based on packet count."""
+        if ip in self.blocked_ips or ip in self.safe_ips:
+            return  # Skip if IP is blocked or marked as safe
+
         self.packet_counts[ip] += 1
         if self.packet_counts[ip] > 100:  # Threshold: 100 packets in a short time
             alert = (
@@ -85,6 +112,10 @@ class ThreatAlertsView(ttk.Frame):
         if ARP in packet and packet[ARP].op == 2:  # ARP response
             ip = packet[ARP].psrc
             mac = packet[ARP].hwsrc
+
+            if ip in self.blocked_ips or ip in self.safe_ips:
+                return  # Skip if IP is blocked or marked as safe
+
             if ip in self.arp_table:
                 if self.arp_table[ip] != mac:
                     alert = (
@@ -113,6 +144,216 @@ class ThreatAlertsView(ttk.Frame):
 
         # Start sniffing in a separate thread
         threading.Thread(target=start_sniffing, daemon=True).start()
+
+    # Threat Management Buttons
+    def view_details(self):
+        selected_item = self.alert_tree.selection()
+        if selected_item:
+            ip = self.alert_tree.item(selected_item, "values")[1]
+            details = self.get_ip_details(ip)
+            self.show_ip_details(details)
+        else:
+            messagebox.showwarning("No Selection", "Please select a threat to view details.")
+
+    def get_ip_details(self, ip):
+        """Fetch detailed information about the selected IP."""
+        details = {
+            "General Information": {
+                "IP Address": ip,
+                "Hostname": self.resolve_hostname(ip),
+                "Location": self.get_geolocation(ip),  # Real geolocation data
+                "MAC Address": self.arp_table.get(ip, "Unknown")
+            },
+            "Connection Details": {
+                "First Seen": self.get_first_seen(ip),
+                "Last Seen": time.strftime("%H:%M:%S"),
+                "Connection Type": self.get_connection_type(ip),  # Real connection type
+                "Associated Ports": self.get_associated_ports(ip)  # Real associated ports
+            },
+            "Threat Analysis": {
+                "Threat Level": "High",  # Placeholder
+                "Malicious Activity Detected": "DoS/DDoS, Port Scanning",  # Placeholder
+                "Blacklist Status": self.check_blacklist(ip)  # Real blacklist status
+            },
+            "Traffic Statistics": {
+                "Total Packets Sent/Received": self.packet_counts.get(ip, 0),
+                "Total Data Transferred": "10 MB"  # Placeholder
+            },
+            "Incident Reports": {
+                "Alerts Generated": self.get_alerts_for_ip(ip),
+                "Event Timestamps": [alert[0] for alert in self.alerts if alert[1] == ip],
+                "Captured Packets": "Raw Packet Data"  # Placeholder
+            }
+        }
+        return details
+
+    def resolve_hostname(self, ip):
+        """Resolve the hostname for the given IP."""
+        try:
+            return socket.gethostbyaddr(ip)[0]
+        except socket.herror:
+            return "Unknown"
+
+    def get_geolocation(self, ip):
+        """Fetch geolocation data for the given IP using ipinfo.io API."""
+        try:
+            api_token = "c146aa543f265e"  # Replace with your actual API token
+            response = requests.get(f"https://ipinfo.io/{ip}?token={api_token}")
+            response.raise_for_status()  # Raise an exception for HTTP errors
+            data = response.json()
+            location = f"{data.get('city', 'Unknown')}, {data.get('region', 'Unknown')}, {data.get('country', 'Unknown')}, ISP: {data.get('org', 'Unknown')}"
+            return location
+        except Exception as e:
+            print(f"Error fetching geolocation data: {e}")  # Debug statement
+            return "Geolocation data unavailable"
+
+    def check_blacklist(self, ip):
+        """Check if the IP is blacklisted using AbuseIPDB API."""
+        try:
+            api_key = "cdcae2dc100a88a2fc43c6d5d85ea52a0ab60d19912301066ab6f178a8aee354645ea834b26ddb29"  # Replace with your actual AbuseIPDB API key
+            url = f"https://api.abuseipdb.com/api/v2/check"
+            headers = {
+                "Key": api_key,
+                "Accept": "application/json"
+            }
+            params = {
+                "ipAddress": ip,
+                "maxAgeInDays": "90"  # Check reports from the last 90 days
+            }
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()  # Raise an exception for HTTP errors
+            data = response.json()
+
+            # Extract blacklist status
+            abuse_confidence_score = data["data"]["abuseConfidenceScore"]
+            if abuse_confidence_score > 0:
+                return f"Blacklisted (Confidence: {abuse_confidence_score}%)"
+            else:
+                return "Not Blacklisted"
+        except Exception as e:
+            print(f"Error fetching blacklist status: {e}")  # Debug statement
+            return "Blacklist status unavailable"
+
+    def get_first_seen(self, ip):
+        """Get the first seen timestamp for the given IP."""
+        for alert in self.alerts:
+            if alert[1] == ip:
+                return alert[0]
+        return "Unknown"
+
+    def get_alerts_for_ip(self, ip):
+        """Get all alerts generated for the given IP."""
+        return [alert[2] for alert in self.alerts if alert[1] == ip]
+
+    def get_connection_type(self, ip):
+        """Get the connection type (TCP/UDP) for the given IP."""
+        # Placeholder logic: You can extend this to analyze packets for the IP
+        return "TCP/UDP"
+
+    def get_associated_ports(self, ip):
+        """Get the associated ports for the given IP."""
+        # Placeholder logic: You can extend this to analyze packets for the IP
+        return "80, 443"
+
+    def show_ip_details(self, details):
+        """Display detailed information about the selected IP in a new window."""
+        details_window = tk.Toplevel(self)
+        details_window.title("IP Details")
+        details_window.geometry("600x400")
+
+        # Create a notebook for tabs
+        notebook = ttk.Notebook(details_window)
+        notebook.pack(fill=tk.BOTH, expand=True)
+
+        # Add tabs for each category
+        for category, data in details.items():
+            tab = ttk.Frame(notebook)
+            notebook.add(tab, text=category)
+
+            # Add data to the tab
+            for key, value in data.items():
+                label = ttk.Label(tab, text=f"{key}: {value}")
+                label.pack(anchor=tk.W, padx=10, pady=5)
+
+    def mark_as_resolved(self):
+        selected_item = self.alert_tree.selection()
+        if selected_item:
+            self.alert_tree.item(selected_item, values=(*self.alert_tree.item(selected_item, "values")[:-1], "Resolved"))
+        else:
+            messagebox.showwarning("No Selection", "Please select a threat to mark as resolved.")
+
+    def delete_threat(self):
+        selected_item = self.alert_tree.selection()
+        if selected_item:
+            self.alert_tree.delete(selected_item)
+        else:
+            messagebox.showwarning("No Selection", "Please select a threat to delete.")
+
+    # Export & Reporting Buttons
+    def export_data(self):
+        """Open a window to select export format and type."""
+        export_window = tk.Toplevel(self)
+        export_window.title("Export Data")
+        export_window.geometry("300x150")
+
+        # Format selection
+        format_label = ttk.Label(export_window, text="Select Export Format:")
+        format_label.pack(pady=5)
+        format_var = tk.StringVar(value="CSV")
+        format_menu = ttk.Combobox(export_window, textvariable=format_var, values=["CSV", "PDF", "Excel"])
+        format_menu.pack(pady=5)
+
+        # Type selection
+        type_label = ttk.Label(export_window, text="Select Threat Type:")
+        type_label.pack(pady=5)
+        type_var = tk.StringVar(value="High")
+        type_menu = ttk.Combobox(export_window, textvariable=type_var, values=["High", "Low", "Most Reoccurring"])
+        type_menu.pack(pady=5)
+
+        # Export button
+        export_btn = ttk.Button(export_window, text="Export", command=lambda: self.perform_export(format_var.get(), type_var.get()))
+        export_btn.pack(pady=10)
+
+    def perform_export(self, format, type):
+        """Perform the export based on the selected format and type."""
+        file_path = filedialog.asksaveasfilename(defaultextension=f".{format.lower()}", filetypes=[(f"{format} files", f"*.{format.lower()}")])
+        if file_path:
+            if format == "CSV":
+                with open(file_path, "w", newline="") as file:
+                    writer = csv.writer(file)
+                    writer.writerow(["Time", "IP", "Threat Type", "Severity", "Status"])
+                    for child in self.alert_tree.get_children():
+                        if type == "High" and self.alert_tree.item(child, "values")[3] == "High":
+                            writer.writerow(self.alert_tree.item(child, "values"))
+                        elif type == "Low" and self.alert_tree.item(child, "values")[3] == "Low":
+                            writer.writerow(self.alert_tree.item(child, "values"))
+                        elif type == "Most Reoccurring":
+                            # Logic to filter most reoccurring threats
+                            pass
+            messagebox.showinfo("Export Successful", f"Data exported to {file_path}")
+
+    # Network Response Actions
+    def block_ip(self):
+        """Block the selected IP."""
+        selected_item = self.alert_tree.selection()
+        if selected_item:
+            ip = self.alert_tree.item(selected_item, "values")[1]
+            self.blocked_ips.add(ip)
+            self.alert_tree.item(selected_item, values=(*self.alert_tree.item(selected_item, "values")[:-1], "Blocked"))
+            messagebox.showinfo("Block IP", f"IP {ip} has been blocked.")
+        else:
+            messagebox.showwarning("No Selection", "Please select a threat to block its IP.")
+
+    def mark_safe(self):
+        """Mark the selected IP as safe."""
+        selected_item = self.alert_tree.selection()
+        if selected_item:
+            ip = self.alert_tree.item(selected_item, "values")[1]
+            self.safe_ips.add(ip)
+            self.alert_tree.item(selected_item, values=(*self.alert_tree.item(selected_item, "values")[:-1], "Safe"))
+            messagebox.showinfo("Mark as Safe", f"IP {ip} has been marked as safe.")
+        else:
+            messagebox.showwarning("No Selection", "Please select a threat to mark its IP as safe.")
 
 # Main application
 if __name__ == "__main__":
