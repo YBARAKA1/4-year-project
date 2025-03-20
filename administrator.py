@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 import psycopg2
 from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG, RED, GREEN
-from login import LoginWindow
+from login import LoginWindow, send_email_async
 
 # Database connection
 def get_db_connection():
@@ -51,12 +51,12 @@ class AdminDashboard(tk.Frame):
         self.load_pending_signups()
         
     def load_pending_signups(self):
-        """Load pending sign-ups from the database into the listbox."""
+        """Load pending sign-ups from the pending table into the listbox."""
         self.pending_listbox.delete(0, tk.END)  # Clear existing items
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("SELECT id, first_name, last_name, email, purpose FROM users WHERE status = 'pending'")
+            cur.execute("SELECT id, first_name, last_name, email, purpose FROM pending")
             pending_users = cur.fetchall()
 
             if not pending_users:
@@ -88,11 +88,31 @@ class AdminDashboard(tk.Frame):
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("UPDATE users SET status = 'approved' WHERE id = %s", (user_id,))
+
+            # Fetch user details from pending table
+            cur.execute("SELECT * FROM pending WHERE id = %s", (user_id,))
+            user = cur.fetchone()
+
+            if not user:
+                messagebox.showerror("Error", "User not found.", parent=self)
+                return
+
+            # Insert into users table
+            cur.execute(
+                "INSERT INTO users (first_name, last_name, email, dob, purpose, status) "
+                "VALUES (%s, %s, %s, %s, %s, 'approved')",
+                (user[1], user[2], user[3], user[4], user[5]))
+            
+            # Delete from pending table
+            cur.execute("DELETE FROM pending WHERE id = %s", (user_id,))
             conn.commit()
-            print(f"[DEBUG] Approved user with ID: {user_id}")
+
+            # Send approval email
+            send_email_async(user[3], "Account Approved", "Your account has been approved. You can now log in.")
+
             messagebox.showinfo("Success", "User approved successfully!", parent=self)
             self.load_pending_signups()  # Refresh the list
+
         except Exception as e:
             print(f"[ERROR] Failed to approve user: {e}")
             messagebox.showerror("Error", "Failed to approve user.", parent=self)
@@ -113,11 +133,31 @@ class AdminDashboard(tk.Frame):
         try:
             conn = get_db_connection()
             cur = conn.cursor()
-            cur.execute("DELETE FROM users WHERE id = %s", (user_id,))
+
+            # Fetch user details from pending table
+            cur.execute("SELECT * FROM pending WHERE id = %s", (user_id,))
+            user = cur.fetchone()
+
+            if not user:
+                messagebox.showerror("Error", "User not found.", parent=self)
+                return
+
+            # Insert into rejected table
+            cur.execute(
+                "INSERT INTO rejected (first_name, last_name, email, dob, purpose, token) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
+                (user[1], user[2], user[3], user[4], user[5], user[6]))
+            
+            # Delete from pending table
+            cur.execute("DELETE FROM pending WHERE id = %s", (user_id,))
             conn.commit()
-            print(f"[DEBUG] Rejected user with ID: {user_id}")
+
+            # Send rejection email
+            send_email_async(user[3], "Account Rejected", "Your account has been rejected. Please contact support for more details.")
+
             messagebox.showinfo("Success", "User rejected successfully!", parent=self)
             self.load_pending_signups()  # Refresh the list
+
         except Exception as e:
             print(f"[ERROR] Failed to reject user: {e}")
             messagebox.showerror("Error", "Failed to reject user.", parent=self)
@@ -161,10 +201,11 @@ class AdminLoginWindow(tk.Toplevel):
         """Open the login window and handle login success."""
         login_window = LoginWindow(self.root)
         self.root.wait_window(login_window)  # Wait for the login window to close
-        
+
         # Check if login was successful
-        if login_window.logged_in:  # Now this will work
+        if login_window.logged_in:
             self.logged_in = True
+            self.role = login_window.role  # Store the user's role
             self.login_button.config(text="Logout", command=self.logout)  # Change button to logout
             self.enable_sidebar_buttons()  # Enable all sidebar buttons
             messagebox.showinfo("Login Successful", "You have successfully logged in!")

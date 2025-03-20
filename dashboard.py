@@ -216,6 +216,7 @@ class IDSDashboard:
         # Initialize packet_tree and alert_tree
         self.packet_tree = None
         self.alert_tree = None
+        self.role = None  # Initialize role attribute
         
         # Add login button with theme styling
         self.login_button = tk.Button(
@@ -242,15 +243,17 @@ class IDSDashboard:
         """Open the login window and handle login success."""
         login_window = LoginWindow(self.root)
         self.root.wait_window(login_window)  # Wait for the login window to close
-        
+
         # Check if login was successful
         if login_window.logged_in:
             self.logged_in = True
+            self.role = login_window.role  # Set the role attribute
             self.login_button.config(text="Logout", command=self.logout)  # Change button to logout
             self.enable_sidebar_buttons()  # Enable all sidebar buttons
             messagebox.showinfo("Login Successful", "You have successfully logged in!")
         else:
             self.logged_in = False
+            self.role = None  # Reset the role attribute
             self.login_button.config(text="Login", command=self.open_login)  # Reset button to login
             self.disable_sidebar_buttons()  # Disable all sidebar buttons except Dashboard
             
@@ -271,12 +274,20 @@ class IDSDashboard:
     def enable_sidebar_buttons(self):
         """Enable all sidebar buttons after successful login."""
         for button in self.sidebar_buttons:
-            button.config(state=tk.NORMAL)  # Enable the button
+            if button["text"] == "Administrator" and self.role != "admin":
+                button.config(state=tk.DISABLED)  # Disable Administrator button for non-admin users
+            else:
+                button.config(state=tk.NORMAL)  # Enable all other buttons
 
     def show_view(self, view_name):
-        """Show the specified view, but restrict access if not logged in."""
+        """Show the specified view, but restrict access based on user role."""
         if view_name != "Dashboard" and not self.logged_in:
             messagebox.showinfo("Login Required", "Please log in to access this feature.")
+            return
+
+        # Restrict access to the Administrator page for non-admin users
+        if view_name == "Administrator" and self.role != "admin":
+            messagebox.showinfo("Access Denied", "You do not have permission to access the Administrator page.")
             return
 
         # Hide current view
@@ -322,9 +333,14 @@ class IDSDashboard:
         
 
     def show_view(self, view_name):
-        """Show the specified view, but restrict access if not logged in."""
+        """Show the specified view, but restrict access based on user role."""
         if view_name != "Dashboard" and not self.logged_in:
             messagebox.showinfo("Login Required", "Please log in to access this feature.")
+            return
+
+        # Restrict access to the Administrator page for non-admin users
+        if view_name == "Administrator" and self.role != "admin":
+            messagebox.showinfo("Access Denied", "You do not have permission to access the Administrator page.")
             return
 
         # Hide current view
@@ -382,9 +398,14 @@ class IDSDashboard:
         self.show_view("Dashboard")
         
     def show_view(self, view_name):
-        """Show the specified view, but restrict access if not logged in."""
+        """Show the specified view, but restrict access based on user role."""
         if view_name != "Dashboard" and not self.logged_in:
             messagebox.showinfo("Login Required", "Please log in to access this feature.")
+            return
+
+        # Restrict access to the Administrator page for non-admin users
+        if view_name == "Administrator" and self.role != "admin":
+            messagebox.showinfo("Access Denied", "You do not have permission to access the Administrator page.")
             return
 
         # Hide current view

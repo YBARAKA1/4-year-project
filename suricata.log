@@ -1,0 +1,60 @@
+[25499 - Suricata-Main] 2025-03-20 21:45:55 Notice: suricata: This is Suricata version 7.0.8 RELEASE running in USER mode
+[25499 - Suricata-Main] 2025-03-20 21:45:55 Info: cpu: CPUs/cores online: 4
+[25499 - Suricata-Main] 2025-03-20 21:45:55 Info: suricata: Setting engine mode to IDS mode by default
+[25499 - Suricata-Main] 2025-03-20 21:45:55 Info: exception-policy: master exception-policy set to: auto
+[25499 - Suricata-Main] 2025-03-20 21:45:55 Info: logopenfile: fast output device (regular) initialized: fast.log
+[25499 - Suricata-Main] 2025-03-20 21:45:55 Info: logopenfile: eve-log output device (regular) initialized: eve.json
+[25499 - Suricata-Main] 2025-03-20 21:45:55 Info: logopenfile: stats output device (regular) initialized: stats.log
+[25499 - Suricata-Main] 2025-03-20 21:46:06 Info: detect-fast-pattern: fast_pattern is ineffective with base64_data
+[25499 - Suricata-Main] 2025-03-20 21:46:06 Info: detect-fast-pattern: fast_pattern is ineffective with base64_data
+[25499 - Suricata-Main] 2025-03-20 21:46:06 Info: detect: 1 rule files processed. 42527 rules successfully loaded, 0 rules failed, 0
+[25499 - Suricata-Main] 2025-03-20 21:46:07 Info: threshold-config: Threshold config parsed: 0 rule(s) found
+[25499 - Suricata-Main] 2025-03-20 21:46:07 Info: detect: 42530 signatures processed. 1289 are IP-only rules, 4333 are inspecting packet payload, 36692 inspect application layer, 108 are decoder event only
+[25499 - Suricata-Main] 2025-03-20 21:46:30 Info: unix-manager: unix socket '/var/run/suricata-command.socket'
+[25981 - RX#01] 2025-03-20 21:46:30 Info: pcap: Starting file run for /usr/share/metasploit-framework/vendor/bundle/ruby/3.1.0/gems/pcaprub-0.13.1/examples/telnet-raw.pcap
+[25499 - Suricata-Main] 2025-03-20 21:46:30 Notice: threads: Threads created -> RX: 1 W: 4 FM: 1 FR: 1   Engine started.
+[25981 - RX#01] 2025-03-20 21:46:30 Info: pcap: pcap file /usr/share/metasploit-framework/vendor/bundle/ruby/3.1.0/gems/pcaprub-0.13.1/examples/telnet-raw.pcap end of file reached (pcap err code 0)
+[25499 - Suricata-Main] 2025-03-20 21:46:30 Notice: suricata: Signal Received.  Stopping engine.
+[25499 - Suricata-Main] 2025-03-20 21:46:30 Info: suricata: time elapsed 0.096s
+[25981 - RX#01] 2025-03-20 21:46:30 Notice: pcap: read 1 file, 272 packets, 19969 bytes
+[25499 - Suricata-Main] 2025-03-20 21:46:30 Info: counters: Alerts: 25
+[29996 - Suricata-Main] 2025-03-20 21:51:47 Notice: suricata: This is Suricata version 7.0.8 RELEASE running in USER mode
+[29996 - Suricata-Main] 2025-03-20 21:51:47 Info: cpu: CPUs/cores online: 4
+[29996 - Suricata-Main] 2025-03-20 21:51:47 Info: suricata: Setting engine mode to IDS mode by default
+[29996 - Suricata-Main] 2025-03-20 21:51:47 Info: exception-policy: master exception-policy set to: auto
+[29996 - Suricata-Main] 2025-03-20 21:51:47 Info: logopenfile: fast output device (regular) initialized: fast.log
+[29996 - Suricata-Main] 2025-03-20 21:51:47 Info: logopenfile: eve-log output device (regular) initialized: eve.json
+[29996 - Suricata-Main] 2025-03-20 21:51:47 Info: logopenfile: stats output device (regular) initialized: stats.log
+[29996 - Suricata-Main] 2025-03-20 21:52:01 Info: detect-fast-pattern: fast_pattern is ineffective with base64_data
+[29996 - Suricata-Main] 2025-03-20 21:52:01 Info: detect-fast-pattern: fast_pattern is ineffective with base64_data
+[29996 - Suricata-Main] 2025-03-20 21:52:01 Info: detect: 1 rule files processed. 42527 rules successfully loaded, 0 rules failed, 0
+[29996 - Suricata-Main] 2025-03-20 21:52:01 Info: threshold-config: Threshold config parsed: 0 rule(s) found
+[29996 - Suricata-Main] 2025-03-20 21:52:01 Info: detect: 42530 signatures processed. 1289 are IP-only rules, 4333 are inspecting packet payload, 36692 inspect application layer, 108 are decoder event only
+[29996 - Suricata-Main] 2025-03-20 21:52:23 Info: unix-manager: unix socket '/var/run/suricata-command.socket'
+[30507 - RX#01] 2025-03-20 21:52:23 Info: pcap: Starting file run for /usr/share/metasploit-framework/vendor/bundle/ruby/3.1.0/gems/packetfu-2.0.0/spec/sample.pcap
+[30507 - RX#01] 2025-03-20 21:52:23 Info: pcap: pcap file /usr/share/metasploit-framework/vendor/bundle/ruby/3.1.0/gems/packetfu-2.0.0/spec/sample.pcap end of file reached (pcap err code 0)
+[29996 - Suricata-Main] 2025-03-20 21:52:23 Notice: threads: Threads created -> RX: 1 W: 4 FM: 1 FR: 1   Engine started.
+[29996 - Suricata-Main] 2025-03-20 21:52:23 Notice: suricata: Signal Received.  Stopping engine.
+[29996 - Suricata-Main] 2025-03-20 21:52:23 Info: suricata: time elapsed 0.084s
+[30507 - RX#01] 2025-03-20 21:52:23 Notice: pcap: read 1 file, 11 packets, 718 bytes
+[29996 - Suricata-Main] 2025-03-20 21:52:23 Info: counters: Alerts: 0
+[30695 - Suricata-Main] 2025-03-20 21:52:33 Notice: suricata: This is Suricata version 7.0.8 RELEASE running in USER mode
+[30695 - Suricata-Main] 2025-03-20 21:52:33 Info: cpu: CPUs/cores online: 4
+[30695 - Suricata-Main] 2025-03-20 21:52:33 Info: suricata: Setting engine mode to IDS mode by default
+[30695 - Suricata-Main] 2025-03-20 21:52:33 Info: exception-policy: master exception-policy set to: auto
+[30695 - Suricata-Main] 2025-03-20 21:52:33 Info: logopenfile: fast output device (regular) initialized: fast.log
+[30695 - Suricata-Main] 2025-03-20 21:52:33 Info: logopenfile: eve-log output device (regular) initialized: eve.json
+[30695 - Suricata-Main] 2025-03-20 21:52:33 Info: logopenfile: stats output device (regular) initialized: stats.log
+[30695 - Suricata-Main] 2025-03-20 21:52:45 Info: detect-fast-pattern: fast_pattern is ineffective with base64_data
+[30695 - Suricata-Main] 2025-03-20 21:52:45 Info: detect-fast-pattern: fast_pattern is ineffective with base64_data
+[30695 - Suricata-Main] 2025-03-20 21:52:45 Info: detect: 1 rule files processed. 42527 rules successfully loaded, 0 rules failed, 0
+[30695 - Suricata-Main] 2025-03-20 21:52:45 Info: threshold-config: Threshold config parsed: 0 rule(s) found
+[30695 - Suricata-Main] 2025-03-20 21:52:45 Info: detect: 42530 signatures processed. 1289 are IP-only rules, 4333 are inspecting packet payload, 36692 inspect application layer, 108 are decoder event only
+[30695 - Suricata-Main] 2025-03-20 21:53:07 Info: unix-manager: unix socket '/var/run/suricata-command.socket'
+[31149 - RX#01] 2025-03-20 21:53:07 Info: pcap: Starting file run for /usr/share/metasploit-framework/vendor/bundle/ruby/3.1.0/gems/packetfu-2.0.0/spec/ipv4_udp.pcap
+[31149 - RX#01] 2025-03-20 21:53:07 Info: pcap: pcap file /usr/share/metasploit-framework/vendor/bundle/ruby/3.1.0/gems/packetfu-2.0.0/spec/ipv4_udp.pcap end of file reached (pcap err code 0)
+[30695 - Suricata-Main] 2025-03-20 21:53:07 Notice: threads: Threads created -> RX: 1 W: 4 FM: 1 FR: 1   Engine started.
+[30695 - Suricata-Main] 2025-03-20 21:53:07 Notice: suricata: Signal Received.  Stopping engine.
+[30695 - Suricata-Main] 2025-03-20 21:53:07 Info: suricata: time elapsed 0.084s
+[31149 - RX#01] 2025-03-20 21:53:07 Notice: pcap: read 1 file, 1 packets, 58 bytes
+[30695 - Suricata-Main] 2025-03-20 21:53:07 Info: counters: Alerts: 0

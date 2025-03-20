@@ -67,6 +67,7 @@ class LoginWindow(tk.Toplevel):
         self.geometry("300x300")
         self.configure(bg=MATRIX_BG)  # Set background color
         self.logged_in = False
+        self.role = None 
 
         # Configure styles
         label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 10)}
@@ -111,7 +112,7 @@ class LoginWindow(tk.Toplevel):
             cur = conn.cursor()
             print("[DEBUG] Database connection established")
 
-            # Check if user exists and is approved
+            # Check if user exists and is approved in the users table
             cur.execute("SELECT status FROM users WHERE email = %s", (email,))
             result = cur.fetchone()
 
@@ -162,7 +163,8 @@ class LoginWindow(tk.Toplevel):
             cur = conn.cursor()
             print("[DEBUG] Verifying token in database")
 
-            cur.execute("SELECT token FROM users WHERE email = %s", (email,))
+            # Fetch user details including role
+            cur.execute("SELECT token, role FROM users WHERE email = %s", (email,))
             result = cur.fetchone()
 
             if not result or result[0] != entered_token:
@@ -171,8 +173,8 @@ class LoginWindow(tk.Toplevel):
                 return
 
             print("[AUTH] Login successful")
-            messagebox.showinfo("Success", "Logged in successfully!")
-            self.logged_in = True  # Set logged_in to True
+            self.logged_in = True
+            self.role = result[1]  # Set the role attribute
             self.destroy()  # Close the login window
 
         except Exception as e:
@@ -256,13 +258,14 @@ class SignUpWindow(tk.Toplevel):
             token = generate_token()
             print(f"[DEBUG] Generated signup token: {token}")
 
+            # Insert into the pending table
             cur.execute(
-                "INSERT INTO users (first_name, last_name, email, dob, purpose, status, token) "
-                "VALUES (%s, %s, %s, %s, %s, 'pending', %s)",
+                "INSERT INTO pending (first_name, last_name, email, dob, purpose, token) "
+                "VALUES (%s, %s, %s, %s, %s, %s)",
                 (first_name, last_name, email, dob, purpose, token)
             )
             conn.commit()
-            print("[DEBUG] User record created")
+            print("[DEBUG] User record created in pending table")
 
             # Send notifications
             admin_msg = f"New user: {first_name} {last_name}\nEmail: {email}\nToken: {token}"
