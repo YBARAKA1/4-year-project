@@ -64,7 +64,7 @@ class LoginWindow(tk.Toplevel):
         super().__init__(parent)
         self.parent = parent
         self.title("Login")
-        self.geometry("500x500")
+        self.geometry("300x300")
         self.configure(bg=MATRIX_BG)  # Set background color
         self.logged_in = False
 
@@ -184,20 +184,26 @@ class LoginWindow(tk.Toplevel):
             print("[DEBUG] Database connection closed")
 
     def open_signup(self):
-        SignUpWindow(self)
+        self.withdraw()  # Hide the login window instead of destroying it
+        SignUpWindow(self)  # Open the signup window
 
-# Sign-Up Window
+
 class SignUpWindow(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
+        self.parent = parent  # Store the parent (LoginWindow) reference
         self.title("Sign Up")
-        self.geometry("400x300")
+        self.geometry("500x400")
         self.configure(bg=MATRIX_BG)  # Set background color
 
         # Configure styles
         label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 10)}
         entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 10), "insertbackground": MATRIX_GREEN}
         button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 10, "bold"), "relief": "flat"}
+
+        # Back Button (top-left corner)
+        self.back_button = tk.Button(self, text="← Back", command=self.go_back, **button_style)
+        self.back_button.place(x=10, y=10)  # Position the button at the top-left
 
         # First Name Label and Entry
         tk.Label(self, text="First Name:", **label_style).pack(pady=5)
@@ -236,9 +242,10 @@ class SignUpWindow(tk.Toplevel):
         purpose = self.purpose_entry.get()
         print(f"[DEBUG] Attempting signup for {email}")
 
+        # Validate all fields are filled
         if not all([first_name, last_name, email, dob, purpose]):
             messagebox.showerror("Error", "Please fill in all fields.")
-            return
+            return  # Exit the method without closing the window
 
         try:
             conn = get_db_connection()
@@ -264,7 +271,7 @@ class SignUpWindow(tk.Toplevel):
 
             print("[DEBUG] Signup process completed")
             messagebox.showinfo("Success", "Sign-up successful! Awaiting admin approval.")
-            self.destroy()
+            self.destroy()  # Close the signup window only after successful signup
 
         except psycopg2.IntegrityError:
             print("[ERROR] Duplicate email attempt")
@@ -277,6 +284,12 @@ class SignUpWindow(tk.Toplevel):
             conn.close()
             print("[DEBUG] Database connection closed")
 
+    def go_back(self):
+        """Close the signup window and reopen the login window."""
+        self.destroy()  # Close the signup window
+        self.parent.deiconify()  # Show the parent (LoginWindow) again
+
+
 # Main Application
 class Application(tk.Tk):
     def __init__(self):
@@ -285,6 +298,7 @@ class Application(tk.Tk):
         self.title("IDS Login System")
         self.geometry("600x400")
         LoginWindow(self)
+
 
 if __name__ == "__main__":
     app = Application()
