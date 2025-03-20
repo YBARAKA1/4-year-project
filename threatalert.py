@@ -1,14 +1,16 @@
+import socket
 import tkinter as tk
-from tkinter import ttk, messagebox, filedialog, simpledialog
+from tkinter import ttk, messagebox, filedialog
 import threading
 import time
 from collections import defaultdict
-from scapy.all import sniff, ARP, IP, TCP, UDP
+from scapy.all import sniff, ARP, IP, TCP
+import json
+import requests
+import joblib
 import csv
-import socket  # For resolving hostnames
-import requests  # For making API requests
-import pandas as pd  # For Excel export
-from fpdf import FPDF  # For PDF export
+import pandas as pd
+from fpdf import FPDF
 
 from constants import MATRIX_BG, MATRIX_GREEN
 
@@ -22,6 +24,21 @@ class ThreatAlertsView(ttk.Frame):
         self.blocked_ips = set()  # Track blocked IPs
         self.safe_ips = set()  # Track safe IPs
         self.ip_details = {}  # Store detailed information for each IP
+
+        # Load Suricata alerts
+        suricata_alerts = self.parse_suricata_alerts("/var/log/suricata/eve.json")
+        for alert in suricata_alerts:
+            self.add_alert((
+                alert["timestamp"],
+                alert["src_ip"],
+                alert["signature"],
+                alert["severity"],
+                "Active"
+            ))
+
+        # Load pre-trained anomaly detection model
+        self.model = joblib.load("anomaly_detection_model.pkl")
+
         self.setup_ui()
         self.start_real_time_detection()  # Start real-time threat detection
 
@@ -84,20 +101,14 @@ class ThreatAlertsView(ttk.Frame):
         self.alert_tree.configure(yscroll=scrollbar.set)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
-    def add_alert(self, alert):
-        """Add a new alert to the treeview."""
-        self.alert_tree.insert("", "end", values=alert)
-        # Keep only the last 100 alerts
-        if len(self.alert_tree.get_children()) > 100:
-            self.alert_tree.delete(self.alert_tree.get_children()[0])
-
     def detect_dos_ddos(self, ip):
         """Detect DoS/DDoS attacks based on packet count."""
+        print(f"Checking DoS/DDoS for IP: {ip}")  # Debug statement
         if ip in self.blocked_ips or ip in self.safe_ips:
             return  # Skip if IP is blocked or marked as safe
 
         self.packet_counts[ip] += 1
-        if self.packet_counts[ip] > 100:  # Threshold: 100 packets in a short time
+        if self.packet_counts[ip] > 200:  # Threshold: 100 packets in a short time
             alert = (
                 time.strftime("%H:%M:%S"),
                 ip,
@@ -110,34 +121,89 @@ class ThreatAlertsView(ttk.Frame):
             self.packet_counts[ip] = 0  # Reset count after detection
 
     def detect_mitm(self, packet):
-        """Detect Man-in-the-Middle attacks using ARP spoofing."""
-        if ARP in packet and packet[ARP].op == 2:  # ARP response
-            ip = packet[ARP].psrc
-            mac = packet[ARP].hwsrc
+        """Detect Man-in-the-Middle (MitM) attacks using ARP spoofing detection."""
+        if ARP in packet:
+            arp = packet[ARP]
+            if arp.op == 2:  # ARP reply
+                ip = arp.psrc
+                mac = arp.hwsrc
 
-            if ip in self.blocked_ips or ip in self.safe_ips:
-                return  # Skip if IP is blocked or marked as safe
+                # Check if the IP-MAC mapping has changed
+                if ip in self.arp_table:
+                    if self.arp_table[ip] != mac:
+                        alert = (
+                            time.strftime("%H:%M:%S"),
+                            ip,
+                            "ARP Spoofing Detected (MitM)",
+                            "Critical",
+                            "Active"
+                        )
+                        self.alerts.append(alert)
+                        self.add_alert(alert)
+                else:
+                    # Store the new IP-MAC mapping
+                    self.arp_table[ip] = mac
 
-            if ip in self.arp_table:
-                if self.arp_table[ip] != mac:
-                    alert = (
-                        time.strftime("%H:%M:%S"),
-                        ip,
-                        "Man-in-the-Middle Attack",
-                        "Critical",
-                        "Active"
-                    )
-                    self.alerts.append(alert)
-                    self.add_alert(alert)
-            else:
-                self.arp_table[ip] = mac
+    def add_alert(self, alert):
+        """Add a new alert to the treeview."""
+        self.alert_tree.insert("", "end", values=alert)
+        # Keep only the last 100 alerts
+        if len(self.alert_tree.get_children()) > 100:
+            self.alert_tree.delete(self.alert_tree.get_children()[0])
+
+    def parse_suricata_alerts(self, log_file):
+        """Parse Suricata alerts from eve.json."""
+        alerts = []
+        try:
+            with open(log_file, "r") as f:
+                for line in f:
+                    alert = json.loads(line)
+                    if alert["event_type"] == "alert":
+                        alerts.append({
+                            "timestamp": alert["timestamp"],
+                            "src_ip": alert["src_ip"],
+                            "dest_ip": alert["dest_ip"],
+                            "signature": alert["alert"]["signature"],
+                            "severity": alert["alert"]["severity"]
+                        })
+        except Exception as e:
+            print(f"Error parsing Suricata alerts: {e}")
+        return alerts
+
+    def extract_features(self, packet):
+        """Extract features from a packet."""
+        if IP in packet:
+            return [packet[IP].len]  # Example: Use packet size as a feature
+        return None
+
+    def detect_anomaly(self, packet):
+        """Detect anomalies using the pre-trained model."""
+        features = self.extract_features(packet)
+        if features:
+            prediction = self.model.predict([features])
+            return prediction == -1  # -1 indicates an anomaly
+        return False
 
     def packet_callback(self, packet):
         """Callback function for packet sniffing."""
         if IP in packet:
             ip_src = packet[IP].src
+
+            # Signature-based detection (Suricata)
             self.detect_dos_ddos(ip_src)  # Check for DoS/DDoS
-        self.detect_mitm(packet)  # Check for MitM
+            self.detect_mitm(packet)  # Check for MitM
+
+            # Anomaly-based detection
+            if self.detect_anomaly(packet):
+                alert = (
+                    time.strftime("%H:%M:%S"),
+                    ip_src,
+                    "Anomaly Detected",
+                    "Critical",
+                    "Active"
+                )
+                self.alerts.append(alert)
+                self.add_alert(alert)
 
     def start_real_time_detection(self):
         """Start sniffing network traffic for real-time threat detection."""
@@ -147,12 +213,29 @@ class ThreatAlertsView(ttk.Frame):
         # Start sniffing in a separate thread
         threading.Thread(target=start_sniffing, daemon=True).start()
 
-    # Threat Management Buttons
+    def check_ip_reputation(self, ip):
+        """Check the reputation of an IP using VirusTotal."""
+        url = f"https://www.virustotal.com/api/v3/ip_addresses/{ip}"
+        headers = {"x-apikey": "eb7f8ebff6ec2a98a9e478ab8e0907c8ca08b2986bd0948e7a958c920f8f335e"}  # Replace with your API key
+        try:
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Error querying VirusTotal: {e}")
+            return None
+
     def view_details(self):
         selected_item = self.alert_tree.selection()
         if selected_item:
             ip = self.alert_tree.item(selected_item, "values")[1]
             details = self.get_ip_details(ip)
+
+            # Add VirusTotal reputation to details
+            vt_reputation = self.check_ip_reputation(ip)
+            if vt_reputation:
+                details["Threat Analysis"]["VirusTotal Reputation"] = vt_reputation
+
             self.show_ip_details(details)
         else:
             messagebox.showwarning("No Selection", "Please select a threat to view details.")
@@ -295,7 +378,6 @@ class ThreatAlertsView(ttk.Frame):
         else:
             messagebox.showwarning("No Selection", "Please select a threat to delete.")
 
-    # Export & Reporting Buttons
     def export_data(self):
         """Open a window to select export format and type."""
         export_window = tk.Toplevel(self)
@@ -397,7 +479,6 @@ class ThreatAlertsView(ttk.Frame):
         df = pd.DataFrame(data, columns=["Time", "IP", "Threat Type", "Severity", "Status"])
         df.to_excel(file_path, index=False, engine='openpyxl')  # or engine='xlsxwriter'
 
-    # Network Response Actions
     def block_ip(self):
         """Block the selected IP."""
         selected_item = self.alert_tree.selection()
