@@ -7,6 +7,8 @@ from scapy.all import sniff, ARP, IP, TCP, UDP
 import csv
 import socket  # For resolving hostnames
 import requests  # For making API requests
+import pandas as pd  # For Excel export
+from fpdf import FPDF  # For PDF export
 
 from constants import MATRIX_BG, MATRIX_GREEN
 
@@ -196,6 +198,10 @@ class ThreatAlertsView(ttk.Frame):
 
     def get_geolocation(self, ip):
         """Fetch geolocation data for the given IP using ipinfo.io API."""
+        # Skip GeoIP lookup for private or multicast IPs
+        if ip.startswith(("10.", "172.", "192.168.", "239.")):
+            return "Private/Multicast IP (No GeoIP data)"
+
         try:
             api_token = "c146aa543f265e"  # Replace with your actual API token
             response = requests.get(f"https://ipinfo.io/{ip}?token={api_token}")
@@ -316,21 +322,80 @@ class ThreatAlertsView(ttk.Frame):
 
     def perform_export(self, format, type):
         """Perform the export based on the selected format and type."""
-        file_path = filedialog.asksaveasfilename(defaultextension=f".{format.lower()}", filetypes=[(f"{format} files", f"*.{format.lower()}")])
+        # Define the default file extension based on the format
+        if format == "Excel":
+            file_types = [("Excel files", "*.xlsx")]
+            defaultextension = ".xlsx"
+        elif format == "CSV":
+            file_types = [("CSV files", "*.csv")]
+            defaultextension = ".csv"
+        elif format == "PDF":
+            file_types = [("PDF files", "*.pdf")]
+            defaultextension = ".pdf"
+        else:
+            messagebox.showerror("Invalid Format", "Unsupported export format.")
+            return
+
+        # Prompt the user to select a file path
+        file_path = filedialog.asksaveasfilename(
+            defaultextension=defaultextension,
+            filetypes=file_types
+        )
+
         if file_path:
+            # Prepare data for export
+            data = []
+            for child in self.alert_tree.get_children():
+                values = self.alert_tree.item(child, "values")
+                if type == "High" and values[3] == "High":
+                    data.append(values)
+                elif type == "Low" and values[3] == "Low":
+                    data.append(values)
+                elif type == "Most Reoccurring":
+                    # Logic to filter most reoccurring threats
+                    pass
+
+            # Perform the export
             if format == "CSV":
-                with open(file_path, "w", newline="") as file:
-                    writer = csv.writer(file)
-                    writer.writerow(["Time", "IP", "Threat Type", "Severity", "Status"])
-                    for child in self.alert_tree.get_children():
-                        if type == "High" and self.alert_tree.item(child, "values")[3] == "High":
-                            writer.writerow(self.alert_tree.item(child, "values"))
-                        elif type == "Low" and self.alert_tree.item(child, "values")[3] == "Low":
-                            writer.writerow(self.alert_tree.item(child, "values"))
-                        elif type == "Most Reoccurring":
-                            # Logic to filter most reoccurring threats
-                            pass
+                self.export_to_csv(file_path, data)
+            elif format == "PDF":
+                self.export_to_pdf(file_path, data)
+            elif format == "Excel":
+                self.export_to_excel(file_path, data)
+
             messagebox.showinfo("Export Successful", f"Data exported to {file_path}")
+
+    def export_to_csv(self, file_path, data):
+        """Export data to a CSV file."""
+        with open(file_path, "w", newline="") as file:
+            writer = csv.writer(file)
+            writer.writerow(["Time", "IP", "Threat Type", "Severity", "Status"])
+            writer.writerows(data)
+
+    def export_to_pdf(self, file_path, data):
+        """Export data to a PDF file."""
+        pdf = FPDF()
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+
+        # Add headers
+        headers = ["Time", "IP", "Threat Type", "Severity", "Status"]
+        for header in headers:
+            pdf.cell(40, 10, header, border=1)
+        pdf.ln()
+
+        # Add data
+        for row in data:
+            for item in row:
+                pdf.cell(40, 10, item, border=1)
+            pdf.ln()
+
+        pdf.output(file_path)
+
+    def export_to_excel(self, file_path, data):
+        """Export data to an Excel file."""
+        df = pd.DataFrame(data, columns=["Time", "IP", "Threat Type", "Severity", "Status"])
+        df.to_excel(file_path, index=False, engine='openpyxl')  # or engine='xlsxwriter'
 
     # Network Response Actions
     def block_ip(self):
