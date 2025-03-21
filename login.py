@@ -117,12 +117,12 @@ class LoginWindow(tk.Toplevel):
             result = cur.fetchone()
 
             if not result:
-                messagebox.showerror("Error", "Email not found. Please sign up or use correct details.")
+                messagebox.showerror("Error", "My guy, you know i know that this isn't right. Email not found. Please sign up or use correct details.")
                 return
 
             status = result[0]
             if status != 'approved':
-                messagebox.showinfo("Pending Approval", "Your account is still pending approval. Please wait for admin approval.")
+                messagebox.showinfo("Pending Approval", "Relax my G, Your account is still pending approval. Please wait for admin approval.")
                 return
 
             # Generate and store token
@@ -139,7 +139,7 @@ class LoginWindow(tk.Toplevel):
             self.login_button.config(text="Login", command=self.login)
 
             # Send token via email in background
-            send_email_async(email, "Your Login Token", f"Your token is: {token}")
+            send_email_async(email, "Your Login Token", f"Yooo, My guy your token is: {token}")
 
         except Exception as e:
             print(f"[ERROR] Database error: {str(e)}")
@@ -155,7 +155,7 @@ class LoginWindow(tk.Toplevel):
         print(f"[DEBUG] Attempting login for {email} with token: {entered_token}")
 
         if not email or not entered_token:
-            messagebox.showerror("Error", "Please enter both email and token.")
+            messagebox.showerror("Error", "Bruuh Bruuh, you need to enter both email and token.")
             return
 
         try:

@@ -13,6 +13,9 @@ import platform
 import math
 import random
 import subprocess
+import psutil
+import os
+import signal
 from trafficanalysis import TrafficAnalysisView  
 from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN
 from trafficanalysis import TrafficAnalysisView
@@ -161,9 +164,9 @@ class IntrusionDetector:
             self.udp_count.clear()
             self.last_reset = current_time
             
-            # Update traffic history
-            self.traffic_history['in'].append(self.bandwidth[0]/(1024*1024))
-            self.traffic_history['out'].append(self.bandwidth[1]/(1024*1024))
+            # Update traffic history (convert bytes to kilobytes)
+            self.traffic_history['in'].append(self.bandwidth[0] / 1024)  # Convert to KB
+            self.traffic_history['out'].append(self.bandwidth[1] / 1024)  # Convert to KB
             self.traffic_history['in'] = self.traffic_history['in'][-60:]
             self.traffic_history['out'] = self.traffic_history['out'][-60:]
             self.bandwidth = [0, 0]
@@ -306,10 +309,17 @@ class IDSDashboard:
                 self.views[view_name] = ThreatAlertsView(self.container)
             elif view_name == "Administrator":
                 self.views[view_name] = AdminDashboard(self.container)
+            elif view_name == "Terminal":
+                from terminal import TerminalView  # Import the TerminalView
+                self.views[view_name] = TerminalView(self.container)
 
         # Display the view
         self.current_view = self.views[view_name]
         self.current_view.pack(fill=tk.BOTH, expand=True)
+    
+    def show_terminal(self):
+        """Show the Terminal view."""
+        self.show_view("Terminal")
         
     def setup_threads(self):
         def sniff_packets():
@@ -359,6 +369,9 @@ class IDSDashboard:
                 self.views[view_name] = ThreatAlertsView(self.container)
             elif view_name == "Administrator":
                 self.views[view_name] = AdminDashboard(self.container)
+            elif view_name == "Terminal":
+                from terminal import TerminalView  # Import the TerminalView
+                self.views[view_name] = TerminalView(self.container)
 
         # Display the view
         self.current_view = self.views[view_name]
@@ -424,6 +437,9 @@ class IDSDashboard:
                 self.views[view_name] = ThreatAlertsView(self.container)
             elif view_name == "Administrator":
                 self.views[view_name] = AdminDashboard(self.container)
+            elif view_name == "Terminal":
+                from terminal import TerminalView  # Import the TerminalView
+                self.views[view_name] = TerminalView(self.container)
 
         # Display the view
         self.current_view = self.views[view_name]
@@ -486,6 +502,7 @@ class IDSDashboard:
             ("Traffic Analysis", self.show_traffic_analysis),
             ("Threat Alerts", self.show_threat_alerts),
             ("Administrator", self.show_admin_page),
+            ("Terminal", self.show_terminal),  # Add the Terminal button
         ]
 
         # Store sidebar buttons for enabling/disabling
@@ -586,15 +603,15 @@ class IDSDashboard:
         self.ax = self.fig.add_subplot(111, facecolor=MATRIX_BG)  # Set axes background to black
         
         # X-axis: Represents time progression over a 60-second window.
-        self.ax.set_xlabel("Time Progression (60 Second Window)\n"
-                        "Left (60s ago) → Right (Current Moment)", 
+        self.ax.set_xlabel("Time Progression\n"
+                        "(Seconds)", 
                         color=MATRIX_GREEN,  # Set label color to green
                         fontsize=10,
                         labelpad=10)
         
-        # Y-axis: Represents network traffic in megabytes per second (MB/s).
-        self.ax.set_ylabel("Network Traffic (Megabytes per Second)\n"
-                        "Volume of Data Transferred (Incoming/Outgoing)", 
+        # Y-axis: Represents network traffic in kilobytes per second (KB/s).
+        self.ax.set_ylabel("Network Traffic (Kilobytes per Second)\n"
+                        "(Incoming/Outgoing)", 
                         color=MATRIX_GREEN,  # Set label color to green
                         fontsize=10,
                         labelpad=10)
@@ -660,17 +677,23 @@ class IDSDashboard:
             
             # Set y-ticks dynamically based on the current traffic
             if y_max > 0:
-                self.ax.set_yticks([y_min, y_max / 2, y_max])
-                self.ax.set_yticklabels([
-                    '0 MB/s', 
-                    f'{y_max / 2:.1f} MB/s\n(Moderate Traffic)', 
-                    f'{y_max:.1f} MB/s\n(Peak Traffic)'
-                ], color=MATRIX_GREEN)  # Set tick label color to green
+                # Calculate dynamic y-ticks based on the range of traffic
+                y_ticks = [y_min, y_max / 4, y_max / 2, y_max * 0.75, y_max]
+                y_tick_labels = [
+                    '0 KB/s', 
+                    f'{y_max / 4:.1f} KB/s', 
+                    f'{y_max / 2:.1f} KB/s', 
+                    f'{y_max * 0.75:.1f} KB/s', 
+                    f'{y_max:.1f} KB/s'
+                ]
+                
+                self.ax.set_yticks(y_ticks)
+                self.ax.set_yticklabels(y_tick_labels, color=MATRIX_GREEN)  # Set tick label color to green
             else:
                 self.ax.set_yticks([y_min, y_max])
                 self.ax.set_yticklabels([
-                    '0 MB/s', 
-                    '0 MB/s'
+                    '0 KB/s', 
+                    '0 KB/s'
                 ], color=MATRIX_GREEN)  # Set tick label color to green
             
             # Reapply styling after clear
@@ -679,7 +702,8 @@ class IDSDashboard:
                         color=MATRIX_GREEN,  # Set label color to green
                         fontsize=10,
                         labelpad=10)
-            self.ax.set_ylabel("Network Traffic (Megabytes per Second)\n"
+            
+            self.ax.set_ylabel("Network Traffic (Kilobytes per Second)\n"
                         "Volume of Data Transferred (Incoming/Outgoing)", 
                         color=MATRIX_GREEN,  # Set label color to green
                         fontsize=10,
@@ -688,6 +712,8 @@ class IDSDashboard:
             self.ax.tick_params(axis='both', colors=MATRIX_GREEN)
             for spine in self.ax.spines.values():
                 spine.set_color(MATRIX_GREEN)
+            
+            # Add subtle grid
             self.ax.grid(True, color=DARK_GREEN, linestyle=':', linewidth=0.7, alpha=0.5)
             
             # Add legend with improved visibility
@@ -696,7 +722,8 @@ class IDSDashboard:
                 edgecolor=MATRIX_GREEN,  # Set legend border color to green
                 labelcolor=MATRIX_GREEN,  # Set legend text color to green
                 loc='upper left',
-                bbox_to_anchor=(0, 1)
+                bbox_to_anchor=(0, 1),
+                fontsize=8  # Adjust font size for better readability
             )
             
             self.canvas.draw()
@@ -708,10 +735,10 @@ class IDSDashboard:
         self.cpu_gauge.set_value(psutil.cpu_percent())
         self.mem_gauge.set_value(psutil.virtual_memory().percent)
         
-        # Update network stats
+        # Update network stats (convert to KB/s)
         net_in = self.detector.traffic_history['in'][-1] if self.detector.traffic_history['in'] else 0
         net_out = self.detector.traffic_history['out'][-1] if self.detector.traffic_history['out'] else 0
-        self.net_stats.config(text=f"IN: {net_in:.2f} MB/s\nOUT: {net_out:.2f} MB/s")
+        self.net_stats.config(text=f"IN: {net_in:.2f} KB/s\nOUT: {net_out:.2f} KB/s")
         
         # Process packets and alerts
         self.process_queues()
@@ -793,8 +820,9 @@ class CyberGauge(tk.Canvas):
         self.bg = bg
         self.fg = fg
         self.bind("<Configure>", self.draw_gauge)
+        self.bind("<Button-1>", self.show_processes)  # Left-click to show processes
+        self.bind("<Button-3>", self.show_context_menu)  # Right-click for context menu
 
-# Fix the CyberGauge drawing method
     def draw_gauge(self, event=None):
         self.delete("all")
         w = self.winfo_width()
@@ -829,6 +857,104 @@ class CyberGauge(tk.Canvas):
     def set_value(self, value):
         self.value = min(max(value, 0), 100)
         self.draw_gauge()
+
+    def show_processes(self, event):
+        """Display a table of processes when the gauge is clicked."""
+        processes = self.get_processes()
+        self.process_window = tk.Toplevel(self)
+        self.process_window.title(f"{self.title} Processes")
+        self.process_window.configure(bg=MATRIX_BG)  # Matrix theme
+        
+        # Close the window when it loses focus
+        self.process_window.bind("<FocusOut>", lambda e: self.process_window.destroy())
+        
+        # Create a treeview to display processes
+        columns = ("PID", "Name", "CPU %", "Memory %", "RSS")
+        self.process_tree = ttk.Treeview(self.process_window, columns=columns, show='headings')
+        for col in columns:
+            self.process_tree.heading(col, text=col)
+            self.process_tree.column(col, width=100)
+        
+        # Populate the treeview with process data
+        for proc in processes:
+            self.process_tree.insert("", "end", values=proc)
+        
+        self.process_tree.pack(fill=tk.BOTH, expand=True)
+        
+        # Bind right-click to show context menu
+        self.process_tree.bind("<Button-3>", self.show_context_menu)
+
+    def get_processes(self):
+        """Get a list of processes with their details."""
+        processes = []
+        for proc in psutil.process_iter(['pid', 'name', 'cpu_percent', 'memory_percent', 'memory_info']):
+            try:
+                processes.append((
+                    proc.info['pid'],
+                    proc.info['name'],
+                    proc.info['cpu_percent'],
+                    proc.info['memory_percent'],
+                    proc.info['memory_info'].rss // 1024  # Convert to KB
+                ))
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                continue
+        return processes
+
+    def show_context_menu(self, event):
+        """Display a context menu with process management options."""
+        # Get the item under the cursor
+        item = self.process_tree.identify_row(event.y)
+        if not item:
+            return  # Do nothing if no row is under the cursor
+
+        # Select the row
+        self.process_tree.selection_set(item)
+        pid = self.process_tree.item(item, "values")[0]
+        
+        # Create a context menu with Matrix theme
+        context_menu = tk.Menu(self, tearoff=0, bg=DARK_GREEN, fg=MATRIX_GREEN)
+        context_menu.add_command(label="Stop", command=lambda: self.manage_process(pid, "stop"))
+        context_menu.add_command(label="Kill", command=lambda: self.manage_process(pid, "kill"))
+        context_menu.add_command(label="Terminate", command=lambda: self.manage_process(pid, "terminate"))
+        
+        # Add priority submenu with Matrix theme
+        priority_menu = tk.Menu(context_menu, tearoff=0, bg=DARK_GREEN, fg=MATRIX_GREEN)
+        priority_menu.add_command(label="High", command=lambda: self.set_priority(pid, -10))
+        priority_menu.add_command(label="Medium", command=lambda: self.set_priority(pid, 0))
+        priority_menu.add_command(label="Low", command=lambda: self.set_priority(pid, 10))
+        context_menu.add_cascade(label="Priority", menu=priority_menu)
+        
+        # Show the context menu at the cursor position
+        context_menu.post(event.x_root, event.y_root)
+
+    def manage_process(self, pid, action):
+        """Manage a process based on the selected action."""
+        try:
+            process = psutil.Process(pid)
+            if action == "stop":
+                process.suspend()
+                messagebox.showinfo("Success", f"Process {pid} has been stopped.")
+            elif action == "kill":
+                process.kill()
+                messagebox.showinfo("Success", f"Process {pid} has been killed.")
+            elif action == "terminate":
+                process.terminate()
+                messagebox.showinfo("Success", f"Process {pid} has been terminated.")
+        except psutil.NoSuchProcess:
+            messagebox.showerror("Error", f"Process {pid} no longer exists.")
+        except psutil.AccessDenied:
+            messagebox.showerror("Error", "Permission denied. Try running as administrator.")
+
+    def set_priority(self, pid, priority):
+        """Set the priority of a process."""
+        try:
+            process = psutil.Process(pid)
+            process.nice(priority)
+            messagebox.showinfo("Success", f"Priority of process {pid} has been set to {priority}.")
+        except psutil.NoSuchProcess:
+            messagebox.showerror("Error", f"Process {pid} no longer exists.")
+        except psutil.AccessDenied:
+            messagebox.showerror("Error", "Permission denied. Try running as administrator.")
 
 # ======================
 # Launch Application
