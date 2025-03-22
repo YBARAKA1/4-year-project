@@ -2,8 +2,7 @@ import tkinter as tk
 from tkinter import messagebox
 import psycopg2
 from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG, RED, GREEN
-from login import LoginWindow, send_email_async
-
+from login_window import LoginWindow, send_email_async 
 # Database connection
 def get_db_connection():
     return psycopg2.connect(
@@ -153,7 +152,7 @@ class AdminDashboard(tk.Frame):
             conn.commit()
 
             # Send rejection email
-            send_email_async(user[3], "Account Rejected", "Your account has been rejected. Please contact support for more details.")
+            send_email_async(user[3], "Account Rejected", " Sorry bruhv, Your account has been rejected. Please contact support for more details. Naah we messing, don't call us.")
 
             messagebox.showinfo("Success", "User rejected successfully!", parent=self)
             self.load_pending_signups()  # Refresh the list

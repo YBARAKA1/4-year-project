@@ -9,12 +9,10 @@ import string
 from dotenv import load_dotenv
 import os
 import threading  # For background email sending
-from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG  # Import theme colors
-
+from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG
 
 # Load environment variables
 load_dotenv()
-
 
 # Database connection
 def get_db_connection():
@@ -58,138 +56,7 @@ def send_email_async(to_email, subject, body):
 
     threading.Thread(target=send_task, daemon=True).start()
 
-# Login Window
-class LoginWindow(tk.Toplevel):
-    def __init__(self, parent):
-        super().__init__(parent)
-        self.parent = parent
-        self.title("Login")
-        self.geometry("300x300")
-        self.configure(bg=MATRIX_BG)  # Set background color
-        self.logged_in = False
-        self.role = None 
-
-        # Configure styles
-        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 10)}
-        entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 10), "insertbackground": MATRIX_GREEN}
-        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 10, "bold"), "relief": "flat"}
-
-        # Email Label and Entry
-        tk.Label(self, text="Email:", **label_style).pack(pady=5)
-        self.email_entry = tk.Entry(self, **entry_style)
-        self.email_entry.pack(pady=5)
-
-        # Token Label and Entry (initially hidden)
-        self.token_label = tk.Label(self, text="Token:", **label_style)
-        self.token_entry = tk.Entry(self, **entry_style)
-
-        # Login Button
-        self.login_button = tk.Button(self, text="Next", command=self.check_email, **button_style)
-        self.login_button.pack(pady=10)
-
-        # Sign Up Button
-        self.signup_button = tk.Button(self, text="Sign Up", command=self.open_signup, **button_style)
-        self.signup_button.pack(pady=10)
-
-        # Add hover effects
-        self.login_button.bind("<Enter>", lambda e: self.login_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
-        self.login_button.bind("<Leave>", lambda e: self.login_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
-        self.signup_button.bind("<Enter>", lambda e: self.signup_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
-        self.signup_button.bind("<Leave>", lambda e: self.signup_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
-
-        print("[DEBUG] LoginWindow initialized")
-
-    def check_email(self):
-        email = self.email_entry.get()
-        print(f"[DEBUG] Checking email: {email}")
-
-        if not email:
-            messagebox.showerror("Error", "Please enter your email.")
-            return
-
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            print("[DEBUG] Database connection established")
-
-            # Check if user exists and is approved in the users table
-            cur.execute("SELECT status FROM users WHERE email = %s", (email,))
-            result = cur.fetchone()
-
-            if not result:
-                messagebox.showerror("Error", "My guy, you know i know that this isn't right. Email not found. Please sign up or use correct details.")
-                return
-
-            status = result[0]
-            if status != 'approved':
-                messagebox.showinfo("Pending Approval", "Relax my G, Your account is still pending approval. Please wait for admin approval.")
-                return
-
-            # Generate and store token
-            token = generate_token()
-            print(f"[DEBUG] Generated token: {token}")
-            cur.execute("UPDATE users SET token = %s, token_created_at = NOW() WHERE email = %s",
-                        (token, email))
-            conn.commit()
-            print("[DEBUG] Token stored in database")
-
-            # Show token fields
-            self.token_label.pack(pady=5)
-            self.token_entry.pack(pady=5)
-            self.login_button.config(text="Login", command=self.login)
-
-            # Send token via email in background
-            send_email_async(email, "Your Login Token", f"Yooo, My guy your token is: {token}")
-
-        except Exception as e:
-            print(f"[ERROR] Database error: {str(e)}")
-            messagebox.showerror("Error", "Database operation failed")
-        finally:
-            cur.close()
-            conn.close()
-            print("[DEBUG] Database connection closed")
-
-    def login(self):
-        email = self.email_entry.get()
-        entered_token = self.token_entry.get()
-        print(f"[DEBUG] Attempting login for {email} with token: {entered_token}")
-
-        if not email or not entered_token:
-            messagebox.showerror("Error", "Bruuh Bruuh, you need to enter both email and token.")
-            return
-
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            print("[DEBUG] Verifying token in database")
-
-            # Fetch user details including role
-            cur.execute("SELECT token, role FROM users WHERE email = %s", (email,))
-            result = cur.fetchone()
-
-            if not result or result[0] != entered_token:
-                print(f"[AUTH] Invalid token for {email}")
-                messagebox.showerror("Error", "Invalid token.")
-                return
-
-            print("[AUTH] Login successful")
-            self.logged_in = True
-            self.role = result[1]  # Set the role attribute
-            self.destroy()  # Close the login window
-
-        except Exception as e:
-            print(f"[ERROR] Login failed: {str(e)}")
-            messagebox.showerror("Error", "Login failed")
-        finally:
-            cur.close()
-            conn.close()
-            print("[DEBUG] Database connection closed")
-
-    def open_signup(self):
-        self.withdraw()  # Hide the login window instead of destroying it
-        SignUpWindow(self)  # Open the signup window
-
-
+# SignUp Window
 class SignUpWindow(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
@@ -267,6 +134,12 @@ class SignUpWindow(tk.Toplevel):
             conn.commit()
             print("[DEBUG] User record created in pending table")
 
+            # Debug: Print the role (if applicable)
+            cur.execute("SELECT role FROM users WHERE email = %s", (email,))
+            result = cur.fetchone()
+            if result:
+                print(f"[DEBUG] Role for {email}: {result[0]}")
+
             # Send notifications
             admin_msg = f"New user: {first_name} {last_name}\nEmail: {email}\nToken: {token}"
             send_email_async("jeff@integral.co.ke", "New Signup Request", admin_msg)
@@ -294,15 +167,9 @@ class SignUpWindow(tk.Toplevel):
 
 
 # Main Application
-class Application(tk.Tk):
-    def __init__(self):
-        super().__init__()
-        self.logged_in = False
-        self.title("IDS Login System")
-        self.geometry("600x400")
-        LoginWindow(self)
-
-
 if __name__ == "__main__":
-    app = Application()
-    app.mainloop()
+    from login_window import LoginWindow  # Import LoginWindow from login_window.py
+
+    root = tk.Tk()
+    login_window = LoginWindow(root)  # Create the LoginWindow
+    root.mainloop()

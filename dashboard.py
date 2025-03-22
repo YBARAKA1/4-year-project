@@ -1,6 +1,6 @@
 import tkinter as tk
 from tkinter import ttk, messagebox
-from login import LoginWindow 
+from login_window import LoginWindow  
 import psutil
 import time
 import scapy.all as scapy
@@ -16,12 +16,13 @@ import subprocess
 import psutil
 import os
 import signal
+import math
 from trafficanalysis import TrafficAnalysisView  
 from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN
 from trafficanalysis import TrafficAnalysisView
 from administrator import AdminDashboard
 from threatalert import ThreatAlertsView
-
+from login_window import LoginWindow  
 # ======================
 # Welcome Screen
 # ======================
@@ -205,8 +206,10 @@ class IntrusionDetector:
 # ======================
 
 class IDSDashboard:
-    def __init__(self, root):
+    def __init__(self, root, role=None):
         self.root = root
+        self.role = role  # Store the role
+        print(f"[DEBUG] Role received in IDSDashboard: {self.role}")
         self.detector = IntrusionDetector()
         self.alert_queue = queue.Queue()
         self.packet_queue = queue.Queue()
@@ -219,7 +222,10 @@ class IDSDashboard:
         # Initialize packet_tree and alert_tree
         self.packet_tree = None
         self.alert_tree = None
-        self.role = None  # Initialize role attribute
+        
+        # Update CyberGauge roles if role is provided
+        if self.role:
+            self.update_gauge_roles(self.role)
         
         # Add login button with theme styling
         self.login_button = tk.Button(
@@ -242,24 +248,37 @@ class IDSDashboard:
         self.setup_gui()
         self.setup_threads()
         
+
+        
     def open_login(self):
         """Open the login window and handle login success."""
-        login_window = LoginWindow(self.root)
-        self.root.wait_window(login_window)  # Wait for the login window to close
+        # Check if a login window is already open
+        if hasattr(self, 'login_window') and self.login_window.winfo_exists():
+            return  # Do nothing if the login window is already open
 
-        # Check if login was successful
-        if login_window.logged_in:
-            self.logged_in = True
-            self.role = login_window.role  # Set the role attribute
-            self.login_button.config(text="Logout", command=self.logout)  # Change button to logout
-            self.enable_sidebar_buttons()  # Enable all sidebar buttons
-            messagebox.showinfo("Login Successful", "You have successfully logged in!")
-        else:
-            self.logged_in = False
-            self.role = None  # Reset the role attribute
-            self.login_button.config(text="Login", command=self.open_login)  # Reset button to login
-            self.disable_sidebar_buttons()  # Disable all sidebar buttons except Dashboard
-            
+        # Create the login window and pass a callback function
+        self.login_window = LoginWindow(self.root, self.handle_login_success)
+        self.root.wait_window(self.login_window)  # Wait for the login window to close
+
+    def handle_login_success(self, role):
+        """Handle successful login by updating the role and enabling admin features."""
+        print(f"[DEBUG] Login successful. Role: {role}")
+        self.logged_in = True
+        self.role = role  # Set the role attribute
+        self.login_button.config(text="Logout", command=self.logout)  # Change button to logout
+        self.enable_sidebar_buttons()  # Enable all sidebar buttons
+        self.update_gauge_roles(role)  # Update the role in CyberGauge instances
+        messagebox.showinfo("Login Successful", "You have successfully logged in!")
+        
+
+    def update_gauge_roles(self, role):
+        """Update the role in all CyberGauge instances."""
+        if hasattr(self, 'cpu_gauge'):
+            self.cpu_gauge.set_role(role)
+        if hasattr(self, 'mem_gauge'):
+            self.mem_gauge.set_role(role)
+        print(f"[DEBUG] Updated CyberGauge roles to: {role}")  # Debug: Confirm role update
+        
     def logout(self):
         """Log out the user and restrict access to other pages."""
         self.logged_in = False
@@ -452,9 +471,9 @@ class IDSDashboard:
         # Left Panel - System Stats
         left_panel = ttk.Frame(frame, width=300)
         ttk.Label(left_panel, text="SYSTEM MONITOR", style="Header.TLabel").pack(pady=15)
-        self.cpu_gauge = CyberGauge(left_panel, "\nCPU LOAD", width=300, height=330, bg=MATRIX_BG, fg=MATRIX_GREEN)
+        self.cpu_gauge = CyberGauge(left_panel, "\nCPU LOAD", width=300, height=330, bg=MATRIX_BG, fg=MATRIX_GREEN, role=self.role)  # Pass role
         self.cpu_gauge.pack(pady=10)
-        self.mem_gauge = CyberGauge(left_panel, "\nMEMORY USAGE", width=300, height=330, bg=MATRIX_BG, fg=MATRIX_GREEN)
+        self.mem_gauge = CyberGauge(left_panel, "\nMEMORY USAGE", width=300, height=330, bg=MATRIX_BG, fg=MATRIX_GREEN, role=self.role)  # Pass role
         self.mem_gauge.pack(pady=10)
         ttk.Label(left_panel, text="LIVE TRAFFIC", style="Header.TLabel").pack(pady=10)
         self.net_stats = ttk.Label(left_panel, text="IN: 0.00 MB/s\nOUT: 0.00 MB/s", font=("Consolas", 10))
@@ -467,7 +486,7 @@ class IDSDashboard:
         right_panel.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
         
         return frame
-        
+
     def create_threat_alerts_view(self):
         frame = ttk.Frame(self.container)
         ttk.Label(frame, text="Threat Alerts", font=("Consolas", 16)).pack(pady=20)
@@ -813,15 +832,72 @@ class IDSDashboard:
 # ======================
 
 class CyberGauge(tk.Canvas):
-    def __init__(self, parent, title, bg, fg, **kwargs):
+    def __init__(self, parent, title, bg, fg, role=None, **kwargs):
         super().__init__(parent, bg=bg, **kwargs)
         self.title = title
         self.value = 0
         self.bg = bg
         self.fg = fg
+        self.role = role  # Store the role
         self.bind("<Configure>", self.draw_gauge)
         self.bind("<Button-1>", self.show_processes)  # Left-click to show processes
         self.bind("<Button-3>", self.show_context_menu)  # Right-click for context menu
+        self.context_menu = None  # Track the context menu
+        self.process_window = None  # Track the process window
+
+    def set_role(self, role):
+        """Update the role dynamically."""
+        self.role = role
+        print(f"[DEBUG] Role updated in CyberGauge: {self.role}")  # Debug: Confirm role update
+
+    def show_context_menu(self, event):
+        """Display a context menu with process management options."""
+        print(f"[DEBUG] Role in context menu: {self.role}") 
+        # Close the existing context menu if it's open
+        self.close_context_menu()
+
+        # Get the item under the cursor
+        item = self.process_tree.identify_row(event.y)
+        if not item:
+            return  # Do nothing if no row is under the cursor
+
+        # Select the row
+        self.process_tree.selection_set(item)
+        pid = self.process_tree.item(item, "values")[0]
+        
+        # Debug: Print the role in the context menu
+        print(f"[DEBUG] Role in context menu: {self.role}")
+
+        # Create a context menu with Matrix theme
+        self.context_menu = tk.Menu(self, tearoff=0, bg=DARK_GREEN, fg=MATRIX_GREEN)
+        
+        # Check if the user is an admin
+        if self.role == 'admin':
+            print("[DEBUG] Admin access granted in context menu")  # Debug: Confirm admin access
+            # Add process management options for admin
+            self.context_menu.add_command(label="Stop", command=lambda: self.manage_process(pid, "stop"))
+            self.context_menu.add_command(label="Kill", command=lambda: self.manage_process(pid, "kill"))
+            self.context_menu.add_command(label="Terminate", command=lambda: self.manage_process(pid, "terminate"))
+            
+            # Add priority submenu with Matrix theme
+            priority_menu = tk.Menu(self.context_menu, tearoff=0, bg=DARK_GREEN, fg=MATRIX_GREEN)
+            priority_menu.add_command(label="High", command=lambda: self.set_priority(pid, -10))
+            priority_menu.add_command(label="Medium", command=lambda: self.set_priority(pid, 0))
+            priority_menu.add_command(label="Low", command=lambda: self.set_priority(pid, 10))
+            self.context_menu.add_cascade(label="Priority", menu=priority_menu)
+        else:
+            print("[DEBUG] Non-admin access in context menu")  # Debug: Confirm non-admin access
+            # If the user is not an admin, show a message
+            self.context_menu.add_command(
+                label="Actions restricted",
+                command=lambda: messagebox.showinfo(
+                    "Admin Only",
+                    "These actions are only available to the administrator. Please log in as an administrator."
+                )
+            )
+        
+        # Show the context menu at the cursor position
+        self.context_menu.post(event.x_root, event.y_root)
 
     def draw_gauge(self, event=None):
         self.delete("all")
@@ -860,13 +936,16 @@ class CyberGauge(tk.Canvas):
 
     def show_processes(self, event):
         """Display a table of processes when the gauge is clicked."""
+        # Check if the process window is already open
+        if self.process_window and self.process_window.winfo_exists():
+            self.process_window.lift()  # Bring the existing window to the front
+            return  # Exit the method to prevent opening a new window
+
+        # If no window is open, create a new one
         processes = self.get_processes()
         self.process_window = tk.Toplevel(self)
         self.process_window.title(f"{self.title} Processes")
         self.process_window.configure(bg=MATRIX_BG)  # Matrix theme
-        
-        # Close the window when it loses focus
-        self.process_window.bind("<FocusOut>", lambda e: self.process_window.destroy())
         
         # Create a treeview to display processes
         columns = ("PID", "Name", "CPU %", "Memory %", "RSS")
@@ -883,6 +962,12 @@ class CyberGauge(tk.Canvas):
         
         # Bind right-click to show context menu
         self.process_tree.bind("<Button-3>", self.show_context_menu)
+        
+        # Bind left-click to close context menu
+        self.process_tree.bind("<Button-1>", self.close_context_menu)
+        
+        # Bind window close event to close context menu
+        self.process_window.protocol("WM_DELETE_WINDOW", self.close_process_window)
 
     def get_processes(self):
         """Get a list of processes with their details."""
@@ -900,36 +985,25 @@ class CyberGauge(tk.Canvas):
                 continue
         return processes
 
-    def show_context_menu(self, event):
-        """Display a context menu with process management options."""
-        # Get the item under the cursor
-        item = self.process_tree.identify_row(event.y)
-        if not item:
-            return  # Do nothing if no row is under the cursor
 
-        # Select the row
-        self.process_tree.selection_set(item)
-        pid = self.process_tree.item(item, "values")[0]
-        
-        # Create a context menu with Matrix theme
-        context_menu = tk.Menu(self, tearoff=0, bg=DARK_GREEN, fg=MATRIX_GREEN)
-        context_menu.add_command(label="Stop", command=lambda: self.manage_process(pid, "stop"))
-        context_menu.add_command(label="Kill", command=lambda: self.manage_process(pid, "kill"))
-        context_menu.add_command(label="Terminate", command=lambda: self.manage_process(pid, "terminate"))
-        
-        # Add priority submenu with Matrix theme
-        priority_menu = tk.Menu(context_menu, tearoff=0, bg=DARK_GREEN, fg=MATRIX_GREEN)
-        priority_menu.add_command(label="High", command=lambda: self.set_priority(pid, -10))
-        priority_menu.add_command(label="Medium", command=lambda: self.set_priority(pid, 0))
-        priority_menu.add_command(label="Low", command=lambda: self.set_priority(pid, 10))
-        context_menu.add_cascade(label="Priority", menu=priority_menu)
-        
-        # Show the context menu at the cursor position
-        context_menu.post(event.x_root, event.y_root)
+
+    def close_context_menu(self, event=None):
+        """Close the context menu if it is open."""
+        if self.context_menu:
+            self.context_menu.destroy()
+            self.context_menu = None
+
+    def close_process_window(self):
+        """Close the process window and context menu."""
+        self.close_context_menu()
+        if self.process_window:
+            self.process_window.destroy()
+            self.process_window = None  # Reset the process_window variable
 
     def manage_process(self, pid, action):
         """Manage a process based on the selected action."""
         try:
+            pid = int(pid)  # Convert pid to an integer
             process = psutil.Process(pid)
             if action == "stop":
                 process.suspend()
@@ -944,10 +1018,15 @@ class CyberGauge(tk.Canvas):
             messagebox.showerror("Error", f"Process {pid} no longer exists.")
         except psutil.AccessDenied:
             messagebox.showerror("Error", "Permission denied. Try running as administrator.")
+        except ValueError:
+            messagebox.showerror("Error", f"Invalid PID: {pid}")
+        finally:
+            self.close_context_menu()
 
     def set_priority(self, pid, priority):
         """Set the priority of a process."""
         try:
+            pid = int(pid)  # Convert pid to an integer
             process = psutil.Process(pid)
             process.nice(priority)
             messagebox.showinfo("Success", f"Priority of process {pid} has been set to {priority}.")
@@ -955,6 +1034,10 @@ class CyberGauge(tk.Canvas):
             messagebox.showerror("Error", f"Process {pid} no longer exists.")
         except psutil.AccessDenied:
             messagebox.showerror("Error", "Permission denied. Try running as administrator.")
+        except ValueError:
+            messagebox.showerror("Error", f"Invalid PID: {pid}")
+        finally:
+            self.close_context_menu()
 
 # ======================
 # Launch Application
