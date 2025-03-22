@@ -63,6 +63,10 @@ class LoginWindow(tk.Toplevel):
         self.configure(bg=MATRIX_BG)
         self.logged_in = False
         self.role = None
+        
+        # Bind the window close event to a cleanup method
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+        
 
         # Configure styles
         label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 10)}
@@ -89,6 +93,8 @@ class LoginWindow(tk.Toplevel):
         # Pack token fields after email entry (but keep them hidden initially)
         self.token_label.pack_forget()
         self.token_entry.pack_forget()
+        
+        
 
         # Add hover effects
         self.login_button.bind("<Enter>", lambda e: self.login_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
@@ -194,6 +200,13 @@ class LoginWindow(tk.Toplevel):
             cur.close()
             conn.close()
             print("[DEBUG] Database connection closed")
+    
+    
+    def on_close(self):
+        """Handle the window close event."""
+        self.destroy()  # Close the window
+        if hasattr(self.parent, 'login_window'):
+            del self.parent.login_window  # Clear the reference to the login window
 
     def open_signup(self):
         self.withdraw()

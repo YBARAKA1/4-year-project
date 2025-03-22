@@ -78,11 +78,13 @@ class SignUpWindow(tk.Toplevel):
         tk.Label(self, text="First Name:", **label_style).pack(pady=5)
         self.first_name_entry = tk.Entry(self, **entry_style)
         self.first_name_entry.pack(pady=5)
+        self.first_name_entry.bind("<FocusIn>", lambda e: self.reset_highlight(self.first_name_entry))
 
         # Last Name Label and Entry
         tk.Label(self, text="Last Name:", **label_style).pack(pady=5)
         self.last_name_entry = tk.Entry(self, **entry_style)
         self.last_name_entry.pack(pady=5)
+        self.last_name_entry.bind("<FocusIn>", lambda e: self.reset_highlight(self.last_name_entry))
 
         # Email Label and Entry
         tk.Label(self, text="Email:", **label_style).pack(pady=5)
@@ -103,6 +105,19 @@ class SignUpWindow(tk.Toplevel):
         self.signup_button = tk.Button(self, text="Sign Up", command=self.signup, **button_style)
         self.signup_button.pack(pady=10)
 
+    def validate_name(self, name):
+        """Check if the name contains only letters."""
+        return name.isalpha()
+
+    def highlight_error(self, entry_widget):
+        """Highlight the entry widget with a red line to indicate an error."""
+        entry_widget.config(highlightbackground="red", highlightcolor="red", highlightthickness=1)
+        entry_widget.focus_set()  # Set focus to the incorrect field
+
+    def reset_highlight(self, entry_widget):
+        """Reset the highlight of the entry widget."""
+        entry_widget.config(highlightbackground=DARK_GREEN, highlightcolor=DARK_GREEN, highlightthickness=1)
+
     def signup(self):
         first_name = self.first_name_entry.get()
         last_name = self.last_name_entry.get()
@@ -110,6 +125,17 @@ class SignUpWindow(tk.Toplevel):
         dob = self.dob_entry.get()
         purpose = self.purpose_entry.get()
         print(f"[DEBUG] Attempting signup for {email}")
+
+        # Validate first name and last name
+        if not self.validate_name(first_name):
+            messagebox.showerror("Error", "First name should contain only letters.")
+            self.highlight_error(self.first_name_entry)
+            return
+
+        if not self.validate_name(last_name):
+            messagebox.showerror("Error", "Last name should contain only letters.")
+            self.highlight_error(self.last_name_entry)
+            return
 
         # Validate all fields are filled
         if not all([first_name, last_name, email, dob, purpose]):
@@ -148,6 +174,9 @@ class SignUpWindow(tk.Toplevel):
             print("[DEBUG] Signup process completed")
             messagebox.showinfo("Success", "Sign-up successful! Awaiting admin approval.")
             self.destroy()  # Close the signup window only after successful signup
+
+            # Restore the LoginWindow
+            self.parent.deiconify()
 
         except psycopg2.IntegrityError:
             print("[ERROR] Duplicate email attempt")

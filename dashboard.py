@@ -259,7 +259,7 @@ class IDSDashboard:
         # Create the login window and pass a callback function
         self.login_window = LoginWindow(self.root, self.handle_login_success)
         self.root.wait_window(self.login_window)  # Wait for the login window to close
-
+    
     def handle_login_success(self, role):
         """Handle successful login by updating the role and enabling admin features."""
         print(f"[DEBUG] Login successful. Role: {role}")
