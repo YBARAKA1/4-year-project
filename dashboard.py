@@ -31,7 +31,8 @@ class WelcomeApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Welcome")
-        self.root.geometry("1024x768")
+        # Make window full screen
+        self.root.attributes('-fullscreen', True)
         self.root.configure(bg="#1a1a1a")
 
         # Colors
@@ -361,109 +362,6 @@ class IDSDashboard:
         
         
 
-    def show_view(self, view_name):
-        """Show the specified view, but restrict access based on user role."""
-        if view_name != "Dashboard" and not self.logged_in:
-            messagebox.showinfo("Login Required", "Please log in to access this feature.")
-            return
-
-        # Restrict access to the Administrator page for non-admin users
-        if view_name == "Administrator" and self.role != "admin":
-            messagebox.showinfo("Access Denied", "You do not have permission to access the Administrator page.")
-            return
-
-        # Hide current view
-        if self.current_view:
-            self.current_view.pack_forget()
-
-        # Create new view if not exists
-        if view_name not in self.views:
-            if view_name == "Dashboard":
-                self.views[view_name] = self.create_dashboard_view()
-            elif view_name == "PacketStream":
-                self.views[view_name] = self.create_packet_stream_view()
-            elif view_name == "TrafficAnalysis":
-                self.views[view_name] = TrafficAnalysisView(self.container)
-            elif view_name == "ThreatAlerts":
-                self.views[view_name] = ThreatAlertsView(self.container)
-            elif view_name == "Administrator":
-                self.views[view_name] = AdminDashboard(self.container)
-            elif view_name == "Terminal":
-                from terminal import TerminalView  # Import the TerminalView
-                self.views[view_name] = TerminalView(self.container)
-
-        # Display the view
-        self.current_view = self.views[view_name]
-        self.current_view.pack(fill=tk.BOTH, expand=True)
-
-    def setup_gui(self):
-        self.root.title("MATRIX IDS 2.0")
-        self.root.geometry("1400x900")
-        self.root.configure(bg=MATRIX_BG)
-
-        # Configure styles
-        self.style = ttk.Style()
-        self.style.theme_use('clam')
-        self.style.configure(".", background=MATRIX_BG, foreground=MATRIX_GREEN)
-        self.style.configure("Header.TLabel", font=("Consolas", 14, "bold"))
-        self.style.configure("Treeview", 
-                            background=DARK_GREEN,
-                            foreground=MATRIX_GREEN,
-                            fieldbackground=DARK_GREEN,
-                            borderwidth=0)
-        self.style.map('Treeview', background=[('selected', '#001a00')])
-
-        # Main paned window
-        main_pane = ttk.PanedWindow(self.root, orient=tk.HORIZONTAL)
-        main_pane.pack(fill=tk.BOTH, expand=True)
-
-        # Collapsible Sidebar
-        self.sidebar = ttk.Frame(main_pane, width=200, style="Sidebar.TFrame")
-        self.setup_sidebar(self.sidebar)
-        main_pane.add(self.sidebar)
-
-        # Main Content Container (replaces left and right panels)
-        self.container = ttk.Frame(main_pane)
-        main_pane.add(self.container, weight=1)  # Allow container to expand
-
-        # Show default view
-        self.show_view("Dashboard")
-        
-    def show_view(self, view_name):
-        """Show the specified view, but restrict access based on user role."""
-        if view_name != "Dashboard" and not self.logged_in:
-            messagebox.showinfo("Login Required", "Please log in to access this feature.")
-            return
-
-        # Restrict access to the Administrator page for non-admin users
-        if view_name == "Administrator" and self.role != "admin":
-            messagebox.showinfo("Access Denied", "You do not have permission to access the Administrator page.")
-            return
-
-        # Hide current view
-        if self.current_view:
-            self.current_view.pack_forget()
-
-        # Create new view if not exists
-        if view_name not in self.views:
-            if view_name == "Dashboard":
-                self.views[view_name] = self.create_dashboard_view()
-            elif view_name == "PacketStream":
-                self.views[view_name] = self.create_packet_stream_view()
-            elif view_name == "TrafficAnalysis":
-                self.views[view_name] = TrafficAnalysisView(self.container)
-            elif view_name == "ThreatAlerts":
-                self.views[view_name] = ThreatAlertsView(self.container)
-            elif view_name == "Administrator":
-                self.views[view_name] = AdminDashboard(self.container)
-            elif view_name == "Terminal":
-                from terminal import TerminalView  # Import the TerminalView
-                self.views[view_name] = TerminalView(self.container)
-
-        # Display the view
-        self.current_view = self.views[view_name]
-        self.current_view.pack(fill=tk.BOTH, expand=True)
-        
     def create_dashboard_view(self):
         """Dashboard view with system stats and traffic overview."""
         frame = ttk.Frame(self.container)
@@ -487,49 +385,130 @@ class IDSDashboard:
         
         return frame
 
-    def create_threat_alerts_view(self):
-        frame = ttk.Frame(self.container)
-        ttk.Label(frame, text="Threat Alerts", font=("Consolas", 16)).pack(pady=20)
-        # Add threat alerts widgets here
-        return frame
-
     def create_packet_stream_view(self):
+        """Create the packet stream view."""
         frame = ttk.Frame(self.container)
         self.setup_packet_table(frame)
         return frame
 
-    def setup_sidebar(self, parent):
-        # Sidebar styling
-        self.style.configure("Sidebar.TFrame", background=DARK_GREEN)
-        self.style.configure("Sidebar.TButton", 
-                            background=DARK_GREEN, 
+    def setup_gui(self):
+        self.root.title("MATRIX IDS 2.0")
+        # Make window full screen
+        self.root.attributes('-fullscreen', True)
+        self.root.configure(bg=MATRIX_BG)
+
+        # Configure styles with modern look
+        self.style = ttk.Style()
+        self.style.theme_use('clam')
+        
+        # Configure base styles
+        self.style.configure(".", 
+                           background=MATRIX_BG, 
+                           foreground=MATRIX_GREEN,
+                           font=("Segoe UI", 10))
+        
+        # Configure header style
+        self.style.configure("Header.TLabel", 
+                           font=("Segoe UI", 14, "bold"),
+                           background=MATRIX_BG,
+                           foreground=MATRIX_GREEN,
+                           padding=10)
+        
+        # Configure Treeview with modern look
+        self.style.configure("Treeview", 
+                            background=DARK_GREEN,
                             foreground=MATRIX_GREEN,
-                            font=("Consolas", 10),
+                            fieldbackground=DARK_GREEN,
+                           borderwidth=0,
+                           rowheight=25)
+        
+        # Configure Treeview headings
+        self.style.configure("Treeview.Heading",
+                           background=DARK_GREEN,
+                           foreground=MATRIX_GREEN,
+                           font=("Segoe UI", 10, "bold"))
+        
+        # Configure Treeview selection
+        self.style.map('Treeview', 
+                      background=[('selected', ACCENT_GREEN)],
+                      foreground=[('selected', MATRIX_BG)])
+        
+        # Configure Button styles
+        self.style.configure("Sidebar.TButton",
+                           background=DARK_GREEN,
+                           foreground=MATRIX_GREEN,
+                           font=("Segoe UI", 10),
+                           padding=10,
                             borderwidth=0)
-        self.style.map("Sidebar.TButton", 
-                    background=[('active', '#001a00')])
+        
+        self.style.map("Sidebar.TButton",
+                      background=[('active', ACCENT_GREEN)],
+                      foreground=[('active', MATRIX_BG)])
 
-        # Toggle button to collapse/expand sidebar
-        self.toggle_button = ttk.Button(parent, text="☰", style="Sidebar.TButton",
-                                        command=self.toggle_sidebar)
-        self.toggle_button.pack(pady=10, fill=tk.X)
+        # Top frame for toggle button with modern styling
+        self.top_frame = ttk.Frame(self.root)
+        self.top_frame.pack(fill=tk.X, padx=5, pady=5)
 
-        # Navigation buttons
+        # Modern toggle button
+        self.toggle_button = ttk.Button(
+            self.top_frame, 
+            text="☰", 
+            style="Sidebar.TButton",
+            command=self.toggle_sidebar,
+            width=3
+        )
+        self.toggle_button.pack(side=tk.LEFT)
+
+        # Main container with fixed layout
+        self.main_container = ttk.Frame(self.root)
+        self.main_container.pack(fill=tk.BOTH, expand=True)
+
+        # Sidebar with modern styling
+        self.sidebar = ttk.Frame(self.main_container, width=200, style="Sidebar.TFrame")
+        self.setup_sidebar(self.sidebar)
+        self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
+
+        # Main content area with padding
+        self.container = ttk.Frame(self.main_container)
+        self.container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Show default view
+        self.show_view("Dashboard")
+        
+    def setup_sidebar(self, parent):
+        # Sidebar styling with modern look
+        self.style.configure("Sidebar.TFrame", 
+                            background=DARK_GREEN, 
+                            borderwidth=0)
+        
+        # Add a header to the sidebar
+        header_frame = ttk.Frame(parent, style="Sidebar.TFrame")
+        header_frame.pack(fill=tk.X, pady=(10, 20))
+        
+        header_label = ttk.Label(header_frame, 
+                               text="MATRIX IDS",
+                               style="Header.TLabel",
+                               background=DARK_GREEN)
+        header_label.pack(pady=5)
+        
+        # Navigation buttons with modern styling
         buttons = [
             ("Dashboard", self.show_dashboard),
             ("Packet Stream", self.show_packet_stream),
             ("Traffic Analysis", self.show_traffic_analysis),
             ("Threat Alerts", self.show_threat_alerts),
             ("Administrator", self.show_admin_page),
-            ("Terminal", self.show_terminal),  # Add the Terminal button
+            ("Terminal", self.show_terminal),
         ]
 
         # Store sidebar buttons for enabling/disabling
         self.sidebar_buttons = []
         for text, command in buttons:
-            button = ttk.Button(parent, text=text, style="Sidebar.TButton",
+            button = ttk.Button(parent, 
+                              text=text, 
+                              style="Sidebar.TButton",
                                 command=command)
-            button.pack(pady=5, fill=tk.X)
+            button.pack(pady=2, fill=tk.X, padx=5)
             self.sidebar_buttons.append(button)
 
         # Initially disable all buttons except Dashboard
@@ -538,20 +517,32 @@ class IDSDashboard:
 
         # Initially show the sidebar
         self.sidebar_visible = True
-    
-    
 
     def toggle_sidebar(self):
+        """Toggle the sidebar visibility."""
         if self.sidebar_visible:
             self.sidebar.pack_forget()  # Hide the sidebar
             self.sidebar_visible = False
             self.toggle_button.config(text="☰")  # Change button text
         else:
-            self.sidebar.pack(side=tk.LEFT, fill=tk.Y)  # Show the sidebar
+            # Always pack the sidebar on the left side
+            self.sidebar.pack(side=tk.LEFT, fill=tk.Y, before=self.container)
             self.sidebar_visible = True
             self.toggle_button.config(text="✕")  # Change button text
-            
-    
+
+    def disable_sidebar_buttons(self):
+        """Disable all sidebar buttons except the Dashboard button."""
+        for button in self.sidebar_buttons:
+            if button["text"] != "Dashboard":
+                button.config(state=tk.DISABLED)  # Disable the button
+                
+    def enable_sidebar_buttons(self):
+        """Enable all sidebar buttons after successful login."""
+        for button in self.sidebar_buttons:
+            if button["text"] == "Administrator" and self.role != "admin":
+                button.config(state=tk.DISABLED)  # Disable Administrator button for non-admin users
+            else:
+                button.config(state=tk.NORMAL)  # Enable all other buttons
 
     def show_dashboard(self):
         self.show_view("Dashboard")
@@ -607,96 +598,260 @@ class IDSDashboard:
 
 
     def setup_packet_table(self, parent):
-        columns = ("Time", "Protocol", "Source", "Destination", "Size")
-        self.packet_tree = ttk.Treeview(parent, columns=columns, show='headings', height=25)
+        """Create an enhanced packet stream view with modern styling."""
+        # Create main container frame with padding
+        main_frame = ttk.Frame(parent)
+        main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Create top control panel with modern styling
+        control_frame = ttk.Frame(main_frame)
+        control_frame.pack(fill=tk.X, pady=(0, 10))
+
+        # Add filter controls with modern look
+        filter_frame = ttk.LabelFrame(control_frame, 
+                                    text="Packet Filter", 
+                                    padding=10,
+                                    style="Sidebar.TFrame")
+        filter_frame.pack(side=tk.LEFT, padx=5)
+
+        # Protocol filter with modern styling
+        ttk.Label(filter_frame, 
+                 text="Protocol:", 
+                 style="Header.TLabel").pack(side=tk.LEFT, padx=5)
+        
+        self.protocol_var = tk.StringVar(value="All")
+        protocol_combo = ttk.Combobox(filter_frame, 
+                                    textvariable=self.protocol_var, 
+                                    values=["All", "TCP", "UDP", "ICMP", "ARP", "802.11"],
+                                    state="readonly", 
+                                    width=10,
+                                    style="Sidebar.TButton")
+        protocol_combo.pack(side=tk.LEFT, padx=5)
+
+        # Add clear button with modern styling
+        clear_btn = ttk.Button(control_frame, 
+                             text="Clear", 
+                             command=self.clear_packet_table,
+                             style="Sidebar.TButton")
+        clear_btn.pack(side=tk.RIGHT, padx=5)
+
+        # Create packet table with modern scrollbars
+        table_frame = ttk.Frame(main_frame)
+        table_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Configure style for the treeview
+        style = ttk.Style()
+        style.configure("Packet.Treeview",
+                       background=DARK_GREEN,
+                       foreground=MATRIX_GREEN,
+                       fieldbackground=DARK_GREEN,
+                       rowheight=25)
+        
+        style.map("Packet.Treeview",
+                 background=[("selected", ACCENT_GREEN)],
+                 foreground=[("selected", MATRIX_BG)])
+
+        # Create treeview with columns
+        columns = ("Time", "Protocol", "Source", "Destination", "Size", "Info")
+        self.packet_tree = ttk.Treeview(table_frame, 
+                                      columns=columns, 
+                                      show='headings', 
+                                      style="Packet.Treeview",
+                                      height=20)
+
+        # Configure columns with modern widths
+        column_widths = {
+            "Time": 100,
+            "Protocol": 80,
+            "Source": 150,
+            "Destination": 150,
+            "Size": 80,
+            "Info": 200
+        }
+
         for col in columns:
             self.packet_tree.heading(col, text=col)
-            self.packet_tree.column(col, width=150)
-        vsb = ttk.Scrollbar(parent, orient="vertical", command=self.packet_tree.yview)
-        self.packet_tree.configure(yscrollcommand=vsb.set)
-        self.packet_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        vsb.pack(side=tk.RIGHT, fill=tk.Y)
+            self.packet_tree.column(col, width=column_widths.get(col, 100))
+
+        # Add modern scrollbars
+        y_scrollbar = ttk.Scrollbar(table_frame, 
+                                  orient="vertical", 
+                                  command=self.packet_tree.yview,
+                                  style="Vertical.TScrollbar")
+        x_scrollbar = ttk.Scrollbar(table_frame, 
+                                  orient="horizontal", 
+                                  command=self.packet_tree.xview,
+                                  style="Horizontal.TScrollbar")
+        
+        self.packet_tree.configure(yscrollcommand=y_scrollbar.set,
+                                 xscrollcommand=x_scrollbar.set)
+
+        # Grid layout for table and scrollbars
+        self.packet_tree.grid(row=0, column=0, sticky="nsew")
+        y_scrollbar.grid(row=0, column=1, sticky="ns")
+        x_scrollbar.grid(row=1, column=0, sticky="ew")
+
+        # Configure grid weights
+        table_frame.grid_columnconfigure(0, weight=1)
+        table_frame.grid_rowconfigure(0, weight=1)
+
+        # Add status bar with modern styling
+        self.status_bar = ttk.Label(main_frame, 
+                                  text="Ready", 
+                                  style="Header.TLabel")
+        self.status_bar.pack(fill=tk.X, pady=(5, 0))
+
+        # Bind events
+        self.packet_tree.bind("<Double-1>", self.show_packet_details)
+        protocol_combo.bind("<<ComboboxSelected>>", self.filter_packets)
+
+    def clear_packet_table(self):
+        """Clear all entries from the packet table."""
+        for item in self.packet_tree.get_children():
+            self.packet_tree.delete(item)
+        self.status_bar.config(text="Packet table cleared")
+
+    def filter_packets(self, event=None):
+        """Filter packets based on selected protocol."""
+        protocol = self.protocol_var.get()
+        for item in self.packet_tree.get_children():
+            values = self.packet_tree.item(item)["values"]
+            if protocol == "All" or values[1] == protocol:
+                self.packet_tree.reattach(item, "", "end")
+            else:
+                self.packet_tree.detach(item)
+        self.status_bar.config(text=f"Filtered packets by protocol: {protocol}")
+
+    def show_packet_details(self, event):
+        """Show detailed information about a selected packet."""
+        selected_item = self.packet_tree.selection()
+        if not selected_item:
+            return
+
+        values = self.packet_tree.item(selected_item[0])["values"]
+        
+        # Create details window
+        details_window = tk.Toplevel(self.root)
+        details_window.title("Packet Details")
+        details_window.geometry("600x400")
+        details_window.configure(bg=MATRIX_BG)
+
+        # Create text widget with custom styling
+        text_widget = tk.Text(details_window, bg=DARK_GREEN, fg=MATRIX_GREEN,
+                            font=("Consolas", 10), wrap=tk.WORD)
+        text_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Format and display packet details
+        details = f"""Packet Details:
+{'='*50}
+Time: {values[0]}
+Protocol: {values[1]}
+Source: {values[2]}
+Destination: {values[3]}
+Size: {values[4]} bytes
+Info: {values[5] if len(values) > 5 else 'N/A'}
+{'='*50}"""
+
+        text_widget.insert(tk.END, details)
+        text_widget.config(state=tk.DISABLED)  # Make read-only
 
     def setup_traffic_chart(self, parent):
-        self.fig = Figure(figsize=(10, 4), dpi=100, facecolor=MATRIX_BG)  # Set figure background to black
-        self.ax = self.fig.add_subplot(111, facecolor=MATRIX_BG)  # Set axes background to black
+        """Create a modern traffic chart with enhanced styling."""
+        # Create a frame for the chart with padding
+        chart_frame = ttk.Frame(parent)
+        chart_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Create figure with modern styling
+        self.fig = Figure(figsize=(10, 4), dpi=100, facecolor=MATRIX_BG)
+        self.ax = self.fig.add_subplot(111, facecolor=MATRIX_BG)
         
-        # X-axis: Represents time progression over a 60-second window.
-        self.ax.set_xlabel("Time Progression\n"
-                        "(Seconds)", 
-                        color=MATRIX_GREEN,  # Set label color to green
+        # Configure chart styling
+        self.ax.set_xlabel("Time Progression (60 Second Window)\n"
+                        "Left (60s ago) → Right (Current Moment)", 
+                        color=MATRIX_GREEN,
                         fontsize=10,
-                        labelpad=10)
+                        labelpad=10,
+                        fontweight='bold')
         
-        # Y-axis: Represents network traffic in kilobytes per second (KB/s).
-        self.ax.set_ylabel("Network Traffic (Kilobytes per Second)\n"
-                        "(Incoming/Outgoing)", 
-                        color=MATRIX_GREEN,  # Set label color to green
+        self.ax.set_ylabel("Network Traffic (KB/s)\n"
+                        "Volume of Data Transferred", 
+                        color=MATRIX_GREEN,
                         fontsize=10,
-                        labelpad=10)
+                        labelpad=10,
+                        fontweight='bold')
         
-        # Configure axis spines and ticks
-        self.ax.tick_params(axis='both', colors=MATRIX_GREEN)  # Set tick colors to green
+        # Configure axis styling
+        self.ax.tick_params(axis='both', 
+                          colors=MATRIX_GREEN,
+                          grid_color=DARK_GREEN,
+                          grid_linestyle=':',
+                          grid_alpha=0.3)
+        
+        # Style the spines
         for spine in self.ax.spines.values():
-            spine.set_color(MATRIX_GREEN)  # Set spine colors to green
+            spine.set_color(MATRIX_GREEN)
+            spine.set_linewidth(1)
         
         # Add subtle grid
-        self.ax.grid(True, color=DARK_GREEN, linestyle=':', linewidth=0.7, alpha=0.5)
+        self.ax.grid(True, 
+                    color=DARK_GREEN, 
+                    linestyle=':', 
+                    linewidth=0.7, 
+                    alpha=0.3)
         
-        self.canvas = FigureCanvasTkAgg(self.fig, master=parent)
-        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        # Create canvas with modern styling
+        self.canvas = FigureCanvasTkAgg(self.fig, master=chart_frame)
+        self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
     def update_chart(self):
+        """Update the traffic chart with modern styling."""
         self.ax.clear()
         
-        # Set the background color of the axes to black
+        # Set the background color
         self.ax.set_facecolor(MATRIX_BG)
         
         # Ensure both traffic history arrays have the same length
-        min_length = min(len(self.detector.traffic_history['in']), len(self.detector.traffic_history['out']))
+        min_length = min(len(self.detector.traffic_history['in']), 
+                        len(self.detector.traffic_history['out']))
         
         if min_length > 0:
-            # Create time axis labels (60 seconds -> now)
-            seconds_ago = list(range(min_length, 0, -1))  # Ensure seconds_ago matches the length of traffic_history
+            # Create time axis labels
+            seconds_ago = list(range(min_length, 0, -1))
             
-            # Slice the traffic history arrays to match the minimum length
+            # Slice the traffic history arrays
             incoming_traffic = self.detector.traffic_history['in'][-min_length:]
             outgoing_traffic = self.detector.traffic_history['out'][-min_length:]
             
-            # Plot both directions with clear labels
+            # Plot with modern styling
             self.ax.plot(seconds_ago, incoming_traffic,
                         color=ACCENT_GREEN, 
-                        linewidth=1.5, 
-                        label='Incoming Traffic')
+                        linewidth=2, 
+                        label='Incoming Traffic',
+                        alpha=0.8)
+            
             self.ax.plot(seconds_ago, outgoing_traffic,
                         color=MATRIX_GREEN,
                         linestyle='--',
-                        linewidth=1.5,
-                        label='Outgoing Traffic')
+                        linewidth=2,
+                        label='Outgoing Traffic',
+                        alpha=0.8)
             
             # Configure axis ranges and labels
-            self.ax.set_xlim(left=60, right=0)  # Reverse x-axis for intuitive timeline
+            self.ax.set_xlim(left=60, right=0)
             self.ax.set_xticks([60, 45, 30, 15, 0])
-            self.ax.set_xticklabels([
-                '60s', 
-                '45s', 
-                '30s', 
-                '15s', 
-                '0s'
-            ], color=MATRIX_GREEN)  # Set tick label color to green
+            self.ax.set_xticklabels(['60s', '45s', '30s', '15s', '0s'], 
+                                  color=MATRIX_GREEN,
+                                  fontweight='bold')
             
             # Y-axis configuration
             max_traffic = max(max(incoming_traffic), max(outgoing_traffic))
-            
-            # Ensure the y-axis has a minimum range to avoid flat lines
             y_min = 0
-            y_max = max_traffic if max_traffic > 0 else 1  # Ensure y_max is at least 1 if max_traffic is 0
+            y_max = max_traffic if max_traffic > 0 else 1
             
             self.ax.set_ylim(bottom=y_min, top=y_max)
             
-            # Set y-ticks dynamically based on the current traffic
+            # Set y-ticks with modern formatting
             if y_max > 0:
-                # Calculate dynamic y-ticks based on the range of traffic
                 y_ticks = [y_min, y_max / 4, y_max / 2, y_max * 0.75, y_max]
                 y_tick_labels = [
                     '0 KB/s', 
@@ -707,42 +862,51 @@ class IDSDashboard:
                 ]
                 
                 self.ax.set_yticks(y_ticks)
-                self.ax.set_yticklabels(y_tick_labels, color=MATRIX_GREEN)  # Set tick label color to green
-            else:
-                self.ax.set_yticks([y_min, y_max])
-                self.ax.set_yticklabels([
-                    '0 KB/s', 
-                    '0 KB/s'
-                ], color=MATRIX_GREEN)  # Set tick label color to green
+                self.ax.set_yticklabels(y_tick_labels, 
+                                      color=MATRIX_GREEN,
+                                      fontweight='bold')
             
-            # Reapply styling after clear
+            # Reapply styling
             self.ax.set_xlabel("Time Progression (60 Second Window)\n"
                         "Left (60s ago) → Right (Current Moment)", 
-                        color=MATRIX_GREEN,  # Set label color to green
+                            color=MATRIX_GREEN,
                         fontsize=10,
-                        labelpad=10)
+                            labelpad=10,
+                            fontweight='bold')
             
-            self.ax.set_ylabel("Network Traffic (Kilobytes per Second)\n"
-                        "Volume of Data Transferred (Incoming/Outgoing)", 
-                        color=MATRIX_GREEN,  # Set label color to green
+            self.ax.set_ylabel("Network Traffic (KB/s)\n"
+                            "Volume of Data Transferred", 
+                            color=MATRIX_GREEN,
                         fontsize=10,
-                        labelpad=10)
-        
-            self.ax.tick_params(axis='both', colors=MATRIX_GREEN)
+                            labelpad=10,
+                            fontweight='bold')
+            
+            # Style the spines and grid
+            self.ax.tick_params(axis='both', 
+                              colors=MATRIX_GREEN,
+                              grid_color=DARK_GREEN,
+                              grid_linestyle=':',
+                              grid_alpha=0.3)
+            
             for spine in self.ax.spines.values():
                 spine.set_color(MATRIX_GREEN)
+                spine.set_linewidth(1)
             
-            # Add subtle grid
-            self.ax.grid(True, color=DARK_GREEN, linestyle=':', linewidth=0.7, alpha=0.5)
+            self.ax.grid(True, 
+                        color=DARK_GREEN, 
+                        linestyle=':', 
+                        linewidth=0.7, 
+                        alpha=0.3)
             
-            # Add legend with improved visibility
+            # Add modern legend
             legend = self.ax.legend(
-                facecolor=MATRIX_BG,  # Set legend background to black
-                edgecolor=MATRIX_GREEN,  # Set legend border color to green
-                labelcolor=MATRIX_GREEN,  # Set legend text color to green
+                facecolor=MATRIX_BG,
+                edgecolor=MATRIX_GREEN,
+                labelcolor=MATRIX_GREEN,
                 loc='upper left',
                 bbox_to_anchor=(0, 1),
-                fontsize=8  # Adjust font size for better readability
+                fontsize=9,
+                framealpha=0.8
             )
             
             self.canvas.draw()
@@ -794,6 +958,13 @@ class IDSDashboard:
                 self.alert_queue.put((alert_time, *result))
             
             # Packet capture (handle both IP and 802.11 frames)
+            pkt_time = time.strftime("%H:%M:%S")
+            protocol = "Unknown"
+            source = "Unknown"
+            dest = "Unknown"
+            size = len(packet)
+            info = ""
+
             if packet.haslayer(scapy.IP):
                 proto = packet[scapy.IP].proto
                 protocol = {
@@ -802,28 +973,44 @@ class IDSDashboard:
                     17: "UDP"
                 }.get(proto, "Other")
                 
-                pkt_time = time.strftime("%H:%M:%S")
                 source = packet[scapy.IP].src
                 dest = packet[scapy.IP].dst
-                size = len(packet)
-                
-                self.packet_queue.put((pkt_time, protocol, source, dest, size))
+
+                # Add detailed protocol information
+                if packet.haslayer(scapy.TCP):
+                    info = f"Port {packet[scapy.TCP].sport} → {packet[scapy.TCP].dport}"
+                    if packet[scapy.TCP].flags & 0x02:  # SYN flag
+                        info += " [SYN]"
+                    elif packet[scapy.TCP].flags & 0x01:  # FIN flag
+                        info += " [FIN]"
+                    elif packet[scapy.TCP].flags & 0x10:  # ACK flag
+                        info += " [ACK]"
+                elif packet.haslayer(scapy.UDP):
+                    info = f"Port {packet[scapy.UDP].sport} → {packet[scapy.UDP].dport}"
+                elif packet.haslayer(scapy.ICMP):
+                    info = f"Type: {packet[scapy.ICMP].type}, Code: {packet[scapy.ICMP].code}"
+
             elif packet.haslayer(scapy.Dot11):  # Handle 802.11 wireless frames
-                pkt_time = time.strftime("%H:%M:%S")
                 protocol = "802.11"
                 source = packet.addr2 if packet.addr2 else "Unknown"
                 dest = packet.addr1 if packet.addr1 else "Unknown"
-                size = len(packet)
-                
-                self.packet_queue.put((pkt_time, protocol, source, dest, size))
+                info = f"Type: {packet.type}, Subtype: {packet.subtype}"
+                if packet.haslayer(scapy.Dot11Beacon):
+                    info += " [Beacon]"
+                elif packet.haslayer(scapy.Dot11ProbeReq):
+                    info += " [Probe Request]"
+                elif packet.haslayer(scapy.Dot11ProbeResp):
+                    info += " [Probe Response]"
+
             elif packet.haslayer(scapy.ARP):  # Handle ARP packets
-                pkt_time = time.strftime("%H:%M:%S")
                 protocol = "ARP"
                 source = packet[scapy.ARP].psrc
                 dest = packet[scapy.ARP].pdst
-                size = len(packet)
-                
-                self.packet_queue.put((pkt_time, protocol, source, dest, size))
+                info = f"Operation: {'Request' if packet[scapy.ARP].op == 1 else 'Reply'}"
+
+            # Add packet to queue with all information
+            self.packet_queue.put((pkt_time, protocol, source, dest, size, info))
+
         except Exception as e:
             print(f"Error processing packet: {e}")
 
@@ -838,17 +1025,96 @@ class CyberGauge(tk.Canvas):
         self.value = 0
         self.bg = bg
         self.fg = fg
-        self.role = role  # Store the role
+        self.role = role
         self.bind("<Configure>", self.draw_gauge)
-        self.bind("<Button-1>", self.show_processes)  # Left-click to show processes
-        self.bind("<Button-3>", self.show_context_menu)  # Right-click for context menu
-        self.context_menu = None  # Track the context menu
-        self.process_window = None  # Track the process window
+        self.bind("<Button-1>", self.show_processes)
+        self.bind("<Button-3>", self.show_context_menu)
+        self.context_menu = None
+        self.process_window = None
+        
+        # Add hover effect
+        self.bind("<Enter>", self.on_enter)
+        self.bind("<Leave>", self.on_leave)
+        self.hover = False
+
+    def on_enter(self, event):
+        """Handle mouse enter event."""
+        self.hover = True
+        self.draw_gauge()
+
+    def on_leave(self, event):
+        """Handle mouse leave event."""
+        self.hover = False
+        self.draw_gauge()
+
+    def draw_gauge(self, event=None):
+        """Draw the gauge with modern styling."""
+        self.delete("all")
+        w = self.winfo_width()
+        h = self.winfo_height()
+        size = min(w, h) - 20
+        
+        # Create gradient effect with hover enhancement
+        for i in range(0, 270, 5):
+            color = self.fade_color(i/270)
+            if self.hover:
+                # Enhance colors on hover
+                color = self.enhance_color(color)
+            self.create_arc(10, 10, 10+size, 10+size,
+                          start=45+i, extent=5,
+                          outline=color,
+                          width=3, style="arc")
+        
+        # Value indicator with modern styling
+        angle = 45 + (270 * (self.value / 100))
+        self.create_line(w/2, h/2,
+                        w/2 + (size/2)*0.8 * math.cos(math.radians(angle)),
+                        h/2 + (size/2)*0.8 * math.sin(math.radians(angle)),
+                        fill=ACCENT_GREEN if self.hover else "#ff3300",
+                        width=3)
+        
+        # Center text with modern styling
+        self.create_text(w/2, h/2, 
+                        text=f"{self.value}%", 
+                        fill=self.fg,
+                        font=("Segoe UI", 16, "bold"))
+        
+        # Title with modern styling
+        self.create_text(w/2, h-15, 
+                        text=self.title,
+                        fill=self.fg,
+                        font=("Segoe UI", 10))
+
+    def enhance_color(self, color):
+        """Enhance color brightness on hover."""
+        # Convert hex to RGB
+        r = int(color[1:3], 16)
+        g = int(color[3:5], 16)
+        b = int(color[5:7], 16)
+        
+        # Increase brightness
+        r = min(255, r + 30)
+        g = min(255, g + 30)
+        b = min(255, b + 30)
+        
+        # Convert back to hex
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def fade_color(self, progress):
+        """Create a smooth color gradient."""
+        r = int(0x00 * (1 - progress) + 0x00 * progress)
+        g = int(0xcc * (1 - progress) + 0xff * progress)
+        b = int(0x00 * (1 - progress) + 0x00 * progress)
+        return f"#{r:02x}{g:02x}{b:02x}"
+
+    def set_value(self, value):
+        self.value = min(max(value, 0), 100)
+        self.draw_gauge()
 
     def set_role(self, role):
         """Update the role dynamically."""
         self.role = role
-        print(f"[DEBUG] Role updated in CyberGauge: {self.role}")  # Debug: Confirm role update
+        print(f"[DEBUG] Role updated in CyberGauge: {self.role}")
 
     def show_context_menu(self, event):
         """Display a context menu with process management options."""
@@ -899,40 +1165,44 @@ class CyberGauge(tk.Canvas):
         # Show the context menu at the cursor position
         self.context_menu.post(event.x_root, event.y_root)
 
-    def draw_gauge(self, event=None):
-        self.delete("all")
-        w = self.winfo_width()
-        h = self.winfo_height()
-        size = min(w, h) - 20
-        
-        # Create gradient effect
-        for i in range(0, 270, 5):
-            self.create_arc(10, 10, 10+size, 10+size,
-                            start=45+i, extent=5,
-                            outline=self.fade_color(i/270),
-                            width=3, style="arc")
-        
-        # Value indicator (fixed line continuation)
-        angle = 45 + (270 * (self.value / 100))
-        self.create_line(w/2, h/2,
-                        w/2 + (size/2)*0.8 * math.cos(math.radians(angle)),
-                        h/2 + (size/2)*0.8 * math.sin(math.radians(angle)),
-                        fill="#ff3300", width=3)
-        # Center text
-        self.create_text(w/2, h/2, text=f"{self.value}%", 
-                        fill=self.fg, font=("Consolas", 14, "bold"))
-        self.create_text(w/2, h-15, text=self.title,
-                        fill=self.fg, font=("Consolas", 10))
+    def manage_process(self, pid, action):
+        """Manage a process based on the selected action."""
+        try:
+            pid = int(pid)  # Convert pid to an integer
+            process = psutil.Process(pid)
+            if action == "stop":
+                process.suspend()
+                messagebox.showinfo("Success", f"Process {pid} has been stopped.")
+            elif action == "kill":
+                process.kill()
+                messagebox.showinfo("Success", f"Process {pid} has been killed.")
+            elif action == "terminate":
+                process.terminate()
+                messagebox.showinfo("Success", f"Process {pid} has been terminated.")
+        except psutil.NoSuchProcess:
+            messagebox.showerror("Error", f"Process {pid} no longer exists.")
+        except psutil.AccessDenied:
+            messagebox.showerror("Error", "Permission denied. Try running as administrator.")
+        except ValueError:
+            messagebox.showerror("Error", f"Invalid PID: {pid}")
+        finally:
+            self.close_context_menu()
 
-    def fade_color(self, progress):
-        r = int(0x00 * (1 - progress) + 0x00 * progress)
-        g = int(0xcc * (1 - progress) + 0xff * progress)
-        b = int(0x00 * (1 - progress) + 0x00 * progress)
-        return f"#{r:02x}{g:02x}{b:02x}"
-
-    def set_value(self, value):
-        self.value = min(max(value, 0), 100)
-        self.draw_gauge()
+    def set_priority(self, pid, priority):
+        """Set the priority of a process."""
+        try:
+            pid = int(pid)  # Convert pid to an integer
+            process = psutil.Process(pid)
+            process.nice(priority)
+            messagebox.showinfo("Success", f"Priority of process {pid} has been set to {priority}.")
+        except psutil.NoSuchProcess:
+            messagebox.showerror("Error", f"Process {pid} no longer exists.")
+        except psutil.AccessDenied:
+            messagebox.showerror("Error", "Permission denied. Try running as administrator.")
+        except ValueError:
+            messagebox.showerror("Error", f"Invalid PID: {pid}")
+        finally:
+            self.close_context_menu()
 
     def show_processes(self, event):
         """Display a table of processes when the gauge is clicked."""
@@ -985,8 +1255,6 @@ class CyberGauge(tk.Canvas):
                 continue
         return processes
 
-
-
     def close_context_menu(self, event=None):
         """Close the context menu if it is open."""
         if self.context_menu:
@@ -999,45 +1267,6 @@ class CyberGauge(tk.Canvas):
         if self.process_window:
             self.process_window.destroy()
             self.process_window = None  # Reset the process_window variable
-
-    def manage_process(self, pid, action):
-        """Manage a process based on the selected action."""
-        try:
-            pid = int(pid)  # Convert pid to an integer
-            process = psutil.Process(pid)
-            if action == "stop":
-                process.suspend()
-                messagebox.showinfo("Success", f"Process {pid} has been stopped.")
-            elif action == "kill":
-                process.kill()
-                messagebox.showinfo("Success", f"Process {pid} has been killed.")
-            elif action == "terminate":
-                process.terminate()
-                messagebox.showinfo("Success", f"Process {pid} has been terminated.")
-        except psutil.NoSuchProcess:
-            messagebox.showerror("Error", f"Process {pid} no longer exists.")
-        except psutil.AccessDenied:
-            messagebox.showerror("Error", "Permission denied. Try running as administrator.")
-        except ValueError:
-            messagebox.showerror("Error", f"Invalid PID: {pid}")
-        finally:
-            self.close_context_menu()
-
-    def set_priority(self, pid, priority):
-        """Set the priority of a process."""
-        try:
-            pid = int(pid)  # Convert pid to an integer
-            process = psutil.Process(pid)
-            process.nice(priority)
-            messagebox.showinfo("Success", f"Priority of process {pid} has been set to {priority}.")
-        except psutil.NoSuchProcess:
-            messagebox.showerror("Error", f"Process {pid} no longer exists.")
-        except psutil.AccessDenied:
-            messagebox.showerror("Error", "Permission denied. Try running as administrator.")
-        except ValueError:
-            messagebox.showerror("Error", f"Invalid PID: {pid}")
-        finally:
-            self.close_context_menu()
 
 # ======================
 # Launch Application

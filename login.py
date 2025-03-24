@@ -60,50 +60,94 @@ def send_email_async(to_email, subject, body):
 class SignUpWindow(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
-        self.parent = parent  # Store the parent (LoginWindow) reference
+        self.parent = parent
         self.title("Sign Up")
-        self.geometry("500x400")
-        self.configure(bg=MATRIX_BG)  # Set background color
+        self.geometry("500x700")
+        self.configure(bg=MATRIX_BG)
+
+        # Make window resizable
+        self.resizable(False, False)
+        
+        # Center the window
+        self.center_window()
 
         # Configure styles
-        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 10)}
-        entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 10), "insertbackground": MATRIX_GREEN}
-        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 10, "bold"), "relief": "flat"}
+        title_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 16, "bold")}
+        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 12)}
+        entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 12), "insertbackground": MATRIX_GREEN}
+        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 12, "bold"), "relief": "flat", "width": 20}
+
+        # Create main frame with padding
+        main_frame = tk.Frame(self, bg=MATRIX_BG, padx=40, pady=40)
+        main_frame.pack(expand=True, fill="both")
+
+        # Title
+        title_label = tk.Label(main_frame, text="Create New Account", **title_style)
+        title_label.pack(pady=(0, 30))
 
         # Back Button (top-left corner)
-        self.back_button = tk.Button(self, text="← Back", command=self.go_back, **button_style)
-        self.back_button.place(x=10, y=10)  # Position the button at the top-left
+        self.back_button = tk.Button(main_frame, text="← Back", command=self.go_back, **button_style)
+        self.back_button.pack(anchor="w", pady=(0, 20))
 
-        # First Name Label and Entry
-        tk.Label(self, text="First Name:", **label_style).pack(pady=5)
-        self.first_name_entry = tk.Entry(self, **entry_style)
-        self.first_name_entry.pack(pady=5)
+        # Create a frame for the form fields
+        form_frame = tk.Frame(main_frame, bg=MATRIX_BG)
+        form_frame.pack(fill="x", pady=10)
+
+        # First Name Frame
+        first_name_frame = tk.Frame(form_frame, bg=MATRIX_BG)
+        first_name_frame.pack(fill="x", pady=5)
+        tk.Label(first_name_frame, text="First Name:", **label_style).pack(anchor="w")
+        self.first_name_entry = tk.Entry(first_name_frame, **entry_style)
+        self.first_name_entry.pack(fill="x", pady=(5, 0))
         self.first_name_entry.bind("<FocusIn>", lambda e: self.reset_highlight(self.first_name_entry))
 
-        # Last Name Label and Entry
-        tk.Label(self, text="Last Name:", **label_style).pack(pady=5)
-        self.last_name_entry = tk.Entry(self, **entry_style)
-        self.last_name_entry.pack(pady=5)
+        # Last Name Frame
+        last_name_frame = tk.Frame(form_frame, bg=MATRIX_BG)
+        last_name_frame.pack(fill="x", pady=5)
+        tk.Label(last_name_frame, text="Last Name:", **label_style).pack(anchor="w")
+        self.last_name_entry = tk.Entry(last_name_frame, **entry_style)
+        self.last_name_entry.pack(fill="x", pady=(5, 0))
         self.last_name_entry.bind("<FocusIn>", lambda e: self.reset_highlight(self.last_name_entry))
 
-        # Email Label and Entry
-        tk.Label(self, text="Email:", **label_style).pack(pady=5)
-        self.email_entry = tk.Entry(self, **entry_style)
-        self.email_entry.pack(pady=5)
+        # Email Frame
+        email_frame = tk.Frame(form_frame, bg=MATRIX_BG)
+        email_frame.pack(fill="x", pady=5)
+        tk.Label(email_frame, text="Email:", **label_style).pack(anchor="w")
+        self.email_entry = tk.Entry(email_frame, **entry_style)
+        self.email_entry.pack(fill="x", pady=(5, 0))
 
-        # Date of Birth Label and Entry
-        tk.Label(self, text="Date of Birth (YYYY-MM-DD):", **label_style).pack(pady=5)
-        self.dob_entry = tk.Entry(self, **entry_style)
-        self.dob_entry.pack(pady=5)
+        # Date of Birth Frame
+        dob_frame = tk.Frame(form_frame, bg=MATRIX_BG)
+        dob_frame.pack(fill="x", pady=5)
+        tk.Label(dob_frame, text="Date of Birth (YYYY-MM-DD):", **label_style).pack(anchor="w")
+        self.dob_entry = tk.Entry(dob_frame, **entry_style)
+        self.dob_entry.pack(fill="x", pady=(5, 0))
 
-        # Purpose Label and Entry
-        tk.Label(self, text="Purpose of Using IDS:", **label_style).pack(pady=5)
-        self.purpose_entry = tk.Entry(self, **entry_style)
-        self.purpose_entry.pack(pady=5)
+        # Purpose Frame
+        purpose_frame = tk.Frame(form_frame, bg=MATRIX_BG)
+        purpose_frame.pack(fill="x", pady=5)
+        tk.Label(purpose_frame, text="Purpose of Using IDS:", **label_style).pack(anchor="w")
+        self.purpose_entry = tk.Entry(purpose_frame, **entry_style)
+        self.purpose_entry.pack(fill="x", pady=(5, 0))
 
         # Sign Up Button
-        self.signup_button = tk.Button(self, text="Sign Up", command=self.signup, **button_style)
-        self.signup_button.pack(pady=10)
+        self.signup_button = tk.Button(main_frame, text="Sign Up", command=self.signup, **button_style)
+        self.signup_button.pack(pady=30)
+
+        # Add hover effects
+        self.back_button.bind("<Enter>", lambda e: self.back_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+        self.back_button.bind("<Leave>", lambda e: self.back_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
+        self.signup_button.bind("<Enter>", lambda e: self.signup_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+        self.signup_button.bind("<Leave>", lambda e: self.signup_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
+
+    def center_window(self):
+        """Center the window on the screen."""
+        self.update_idletasks()
+        width = self.winfo_width()
+        height = self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
 
     def validate_name(self, name):
         """Check if the name contains only letters."""

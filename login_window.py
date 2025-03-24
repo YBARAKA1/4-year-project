@@ -57,44 +57,66 @@ class LoginWindow(tk.Toplevel):
     def __init__(self, parent, on_login_success):
         super().__init__(parent)
         self.parent = parent
-        self.on_login_success = on_login_success  # Callback function for successful login
+        self.on_login_success = on_login_success
         self.title("Login")
-        self.geometry("300x300")
+        self.geometry("400x500")
         self.configure(bg=MATRIX_BG)
         self.logged_in = False
         self.role = None
         
+        # Make window resizable
+        self.resizable(False, False)
+        
+        # Center the window
+        self.center_window()
+        
         # Bind the window close event to a cleanup method
         self.protocol("WM_DELETE_WINDOW", self.on_close)
-        
 
         # Configure styles
-        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 10)}
-        entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 10), "insertbackground": MATRIX_GREEN}
-        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 10, "bold"), "relief": "flat"}
+        title_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 16, "bold")}
+        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 12)}
+        entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 12), "insertbackground": MATRIX_GREEN}
+        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 12, "bold"), "relief": "flat", "width": 20}
 
+        # Create main frame with padding
+        main_frame = tk.Frame(self, bg=MATRIX_BG, padx=40, pady=40)
+        main_frame.pack(expand=True, fill="both")
+
+        # Title
+        title_label = tk.Label(main_frame, text="Welcome Back", **title_style)
+        title_label.pack(pady=(0, 30))
+
+        # Email Frame
+        email_frame = tk.Frame(main_frame, bg=MATRIX_BG)
+        email_frame.pack(fill="x", pady=10)
+        
         # Email Label and Entry
-        tk.Label(self, text="Email:", **label_style).pack(pady=5)
-        self.email_entry = tk.Entry(self, **entry_style)
-        self.email_entry.pack(pady=5)
+        tk.Label(email_frame, text="Email:", **label_style).pack(anchor="w")
+        self.email_entry = tk.Entry(email_frame, **entry_style)
+        self.email_entry.pack(fill="x", pady=(5, 0))
 
-        # Token Label and Entry (initially hidden)
-        self.token_label = tk.Label(self, text="Token:", **label_style)
-        self.token_entry = tk.Entry(self, **entry_style)
+        # Token Frame (initially hidden)
+        self.token_frame = tk.Frame(main_frame, bg=MATRIX_BG)
+        self.token_label = tk.Label(self.token_frame, text="Token:", **label_style)
+        self.token_entry = tk.Entry(self.token_frame, **entry_style)
+        
+        # Pack token widgets (but keep frame hidden initially)
+        self.token_label.pack(anchor="w")
+        self.token_entry.pack(fill="x", pady=(5, 0))
+        self.token_frame.pack_forget()  # Hide the token frame initially
+
+        # Buttons Frame
+        self.buttons_frame = tk.Frame(main_frame, bg=MATRIX_BG)
+        self.buttons_frame.pack(pady=30)
 
         # Login Button
-        self.login_button = tk.Button(self, text="Next", command=self.check_email, **button_style)
-        self.login_button.pack(pady=10)
+        self.login_button = tk.Button(self.buttons_frame, text="Next", command=self.check_email, **button_style)
+        self.login_button.pack(pady=5)
 
         # Sign Up Button
-        self.signup_button = tk.Button(self, text="Sign Up", command=self.open_signup, **button_style)
-        self.signup_button.pack(pady=10)
-
-        # Pack token fields after email entry (but keep them hidden initially)
-        self.token_label.pack_forget()
-        self.token_entry.pack_forget()
-        
-        
+        self.signup_button = tk.Button(self.buttons_frame, text="Sign Up", command=self.open_signup, **button_style)
+        self.signup_button.pack(pady=5)
 
         # Add hover effects
         self.login_button.bind("<Enter>", lambda e: self.login_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
@@ -103,6 +125,15 @@ class LoginWindow(tk.Toplevel):
         self.signup_button.bind("<Leave>", lambda e: self.signup_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
 
         print("[DEBUG] LoginWindow initialized")
+
+    def center_window(self):
+        """Center the window on the screen."""
+        self.update_idletasks()
+        width = self.winfo_width()
+        height = self.winfo_height()
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
 
     def login(self):
         email = self.email_entry.get()
@@ -184,9 +215,8 @@ class LoginWindow(tk.Toplevel):
             conn.commit()
             print("[DEBUG] Token stored in database")
 
-            # Show token fields below the email entry and above the "Next" button
-            self.token_label.pack(pady=5, before=self.login_button)
-            self.token_entry.pack(pady=5, before=self.login_button)
+            # Show token fields
+            self.token_frame.pack(fill="x", pady=10, before=self.buttons_frame)
             self.login_button.config(text="Login", command=self.login)
 
             # Send token via email in background
