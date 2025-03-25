@@ -127,12 +127,20 @@ class TerminalView(ttk.Frame):
             self.output_queue.put(f"\n$ {command}\n")  # Display the command
             self.terminal_input.delete(0, tk.END)  # Clear the input field
 
-            # Run the command in a separate thread to avoid freezing the GUI
-            threading.Thread(
-                target=self.run_command,
-                args=(command,),
-                daemon=True
-            ).start()
+            # Check if the command is 'exit'
+            if command.lower() == 'exit':
+                self.output_queue.put("Initiating system shutdown sequence...\n")
+                # Get the root window and trigger the closing animation
+                root = self.winfo_toplevel()
+                if hasattr(root, 'on_closing'):
+                    root.on_closing()
+            else:
+                # Run the command in a separate thread to avoid freezing the GUI
+                threading.Thread(
+                    target=self.run_command,
+                    args=(command,),
+                    daemon=True
+                ).start()
 
     def clear_terminal(self):
         """Clear the terminal output."""

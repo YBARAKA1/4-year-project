@@ -211,6 +211,13 @@ class IDSDashboard:
         self.root = root
         self.role = role  # Store the role
         print(f"[DEBUG] Role received in IDSDashboard: {self.role}")
+        
+        # Colors
+        self.bg_color = "#1a1a1a"
+        self.text_color = "#ffffff"
+        self.accent_blue = "#00c0ff"
+        self.glitch_colors = ["#ff0000", "#00ff00", "#ffff00", "#ff00ff"]  # Red, Green, Yellow, Purple
+        
         self.detector = IntrusionDetector()
         self.alert_queue = queue.Queue()
         self.packet_queue = queue.Queue()
@@ -249,7 +256,93 @@ class IDSDashboard:
         self.setup_gui()
         self.setup_threads()
         
-
+        # Bind window close event
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        
+    def on_closing(self):
+        """Handle window closing with animation."""
+        self.start_closing_animation()
+        
+    def start_closing_animation(self):
+        """Start the closing animation sequence."""
+        # Hide all current widgets
+        for widget in self.root.winfo_children():
+            widget.pack_forget()
+            
+        # Create canvas for closing animation
+        self.close_canvas = tk.Canvas(self.root, bg="black", highlightthickness=0)
+        self.close_canvas.pack(fill=tk.BOTH, expand=True)
+        
+        # Generate fake hack lines for closing
+        self.close_hack_lines = [
+            f"root@NIDS:~# {random.choice(['Shutting down monitoring...', 'Closing connections...', 'Saving logs...', 'Terminating processes...'])}",
+            f"ALERT [{random.randint(1000, 9999)}]: {random.choice(['System shutdown initiated', 'Backing up configurations', 'Clearing temporary files', 'Closing network interfaces'])}",
+            f"Packet Capture [{random.randint(1000, 9999)} packets] -> Saving to /var/log/nids.log...",
+            f"Snort Rule Triggered: [{random.randint(1000, 9999)}] {random.choice(['Final system check', 'Security audit complete', 'Network interfaces down', 'System shutdown in progress'])}",
+            f"Source IP: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)} -> Destination IP: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"Deep Packet Inspection -> {random.choice(['Final security check', 'System shutdown complete', 'All processes terminated'])}",
+            f"Firewall Alert: {random.randint(10, 500)} connections closed from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"Real-time traffic analysis: {random.randint(500, 5000)} packets/sec | {random.randint(50, 500)} final checks",
+            f"Anomaly Score: {random.randint(1, 100)} | {random.choice(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])} risk",
+            f"TCP SYN Flood detected: {random.randint(1000, 9999)} requests per second",
+            f"Encrypted traffic analysis: {random.choice(['Final security check', 'System shutdown in progress', 'All processes terminated'])}",
+            f"Botnet C&C Communication detected: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)} -> Final analysis...",
+            f"New unauthorized MAC Address detected on network: {':'.join(['%02x' % random.randint(0, 255) for _ in range(6)])}",
+            f"IDS Log: {random.randint(10000, 99999)} final security events recorded...",
+            f"Port Scan Detected: {random.randint(20, 100)} open ports from IP {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"DNS Spoofing Attempt: Final check from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"ARP Spoofing detected: MAC Address mismatch for {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+            f"Syslog Alert: Final activity check on port {random.randint(1000, 9999)}",
+            f"MITM Attack Warning: Final check from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
+        ] * 5  # Repeat for more lines
+        
+        self.close_hack_y = 10
+        self.type_closing_text()
+        
+    def type_closing_text(self):
+        """Types out the closing animation text."""
+        if self.close_hack_lines:
+            text = self.close_hack_lines.pop(0)
+            self.close_canvas.create_text(20, self.close_hack_y, anchor="w", text=text, font=("Courier", 14), fill="green")
+            self.close_hack_y += 20
+            
+            # Scroll effect
+            if self.close_hack_y > self.root.winfo_height():
+                self.close_canvas.move("all", 0, -20)
+                
+            self.root.after(100, self.type_closing_text)
+        else:
+            self.root.after(500, self.start_glitch_effect)
+            
+    def start_glitch_effect(self):
+        """Start the glitch effect before closing."""
+        self.close_canvas.delete("all")
+        self.glitch_label = tk.Label(
+            self.close_canvas,
+            text="Network IDS",
+            font=("Segoe UI", 48, "bold"),
+            fg=self.accent_blue,
+            bg="black"
+        )
+        self.glitch_label.place(relx=0.5, rely=0.4, anchor=tk.CENTER)
+        self.glitch_count = 0
+        self.glitch_effect()
+        
+    def glitch_effect(self):
+        """Creates a glitch effect before closing."""
+        if self.glitch_count < 8:
+            glitch_text = "N3tw@rk 1D$  " if self.glitch_count % 2 == 0 else "n3tm07sk I96"
+            self.glitch_label.config(text=glitch_text, fg=random.choice(self.glitch_colors))
+            self.glitch_count += 1
+            self.root.after(100, self.glitch_effect)
+        else:
+            self.root.after(500, self.fade_to_black)
+            
+    def fade_to_black(self):
+        """Fade to black before closing."""
+        self.glitch_label.destroy()
+        self.close_canvas.configure(bg="black")
+        self.root.after(500, self.root.destroy)
         
     def open_login(self):
         """Open the login window and handle login success."""
@@ -332,6 +425,9 @@ class IDSDashboard:
             elif view_name == "Terminal":
                 from terminal import TerminalView  # Import the TerminalView
                 self.views[view_name] = TerminalView(self.container)
+            elif view_name == "PortScanner":
+                from port_scanner import PortScannerView  # Import the PortScannerView
+                self.views[view_name] = PortScannerView(self.container)
 
         # Display the view
         self.current_view = self.views[view_name]
@@ -497,6 +593,7 @@ class IDSDashboard:
             ("Packet Stream", self.show_packet_stream),
             ("Traffic Analysis", self.show_traffic_analysis),
             ("Threat Alerts", self.show_threat_alerts),
+            ("Port Scanner", self.show_port_scanner),
             ("Administrator", self.show_admin_page),
             ("Terminal", self.show_terminal),
         ]
@@ -561,6 +658,9 @@ class IDSDashboard:
         self.root.title("Admin Dashboard")  # Set the window title
         self.show_view("Administrator")
         
+    def show_port_scanner(self):
+        """Show the Port Scanner view."""
+        self.show_view("PortScanner")
 
     def setup_left_panel(self, parent):
         # System Monitoring
