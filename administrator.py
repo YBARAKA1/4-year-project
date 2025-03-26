@@ -150,45 +150,15 @@ class AdminDashboard(tk.Frame):
         filters_frame = tk.Frame(self.threat_actions_tab, bg=MATRIX_BG)
         filters_frame.pack(fill=tk.X, pady=(0, 10))
 
-        # Left side filters
-        filters_left = tk.Frame(filters_frame, bg=MATRIX_BG)
-        filters_left.pack(side=tk.LEFT, fill=tk.X, expand=True)
-
-        # Action Type Filter
-        action_frame = tk.Frame(filters_left, bg=MATRIX_BG)
-        action_frame.pack(side=tk.LEFT, padx=5)
-        tk.Label(action_frame, text="Action:", **label_style).pack(side=tk.LEFT)
-        self.action_var = tk.StringVar(value="All")
-        self.action_var.trace('w', self.apply_threat_filters)
-        actions = ["All", "Blocked", "Marked Safe"]
-        self.action_menu = tk.OptionMenu(action_frame, self.action_var, *actions)
-        self.action_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=("Consolas", 10))
-        self.action_menu.pack(side=tk.LEFT, padx=5)
-
-        # Severity Filter
-        severity_frame = tk.Frame(filters_left, bg=MATRIX_BG)
-        severity_frame.pack(side=tk.LEFT, padx=5)
-        tk.Label(severity_frame, text="Severity:", **label_style).pack(side=tk.LEFT)
-        self.severity_var = tk.StringVar(value="All")
-        self.severity_var.trace('w', self.apply_threat_filters)
-        severities = ["All", "Low", "Medium", "High"]
-        self.severity_menu = tk.OptionMenu(severity_frame, self.severity_var, *severities)
-        self.severity_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=("Consolas", 10))
-        self.severity_menu.pack(side=tk.LEFT, padx=5)
-
-        # Right side export button
-        export_frame = tk.Frame(filters_frame, bg=MATRIX_BG)
-        export_frame.pack(side=tk.RIGHT, padx=5)
-
-        # Export Button with Menu
+        # Export Button with Menu (placed on the left)
         self.export_button = tk.Button(
-            export_frame,
+            filters_frame,
             text="Export Data",
             command=self.show_export_menu,
             width=12,
             **button_style
         )
-        self.export_button.pack(side=tk.RIGHT)
+        self.export_button.pack(side=tk.LEFT, padx=5)
 
         # Export Menu with improved styling
         self.export_menu = tk.Menu(
@@ -216,9 +186,49 @@ class AdminDashboard(tk.Frame):
             font=("Consolas", 10)
         )
 
-        # Add hover effects
+        # Add hover effects for export button
         self.export_button.bind("<Enter>", lambda e: self.export_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
         self.export_button.bind("<Leave>", lambda e: self.export_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
+
+        # Refresh button (placed next to export button)
+        refresh_button = tk.Button(
+            filters_frame,
+            text="Refresh",
+            command=self.load_threat_actions,
+            width=8,
+            **button_style
+        )
+        refresh_button.pack(side=tk.LEFT, padx=5)
+
+        # Add hover effects for refresh button
+        refresh_button.bind("<Enter>", lambda e: refresh_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+        refresh_button.bind("<Leave>", lambda e: refresh_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
+
+        # Filters container
+        filters_container = tk.Frame(filters_frame, bg=MATRIX_BG)
+        filters_container.pack(side=tk.LEFT, padx=20)
+
+        # Action Type Filter
+        action_frame = tk.Frame(filters_container, bg=MATRIX_BG)
+        action_frame.pack(side=tk.LEFT, padx=5)
+        tk.Label(action_frame, text="Action:", **label_style).pack(side=tk.LEFT)
+        self.action_var = tk.StringVar(value="All")
+        self.action_var.trace('w', self.apply_threat_filters)
+        actions = ["All", "Blocked", "Marked Safe"]
+        self.action_menu = tk.OptionMenu(action_frame, self.action_var, *actions)
+        self.action_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=("Consolas", 10))
+        self.action_menu.pack(side=tk.LEFT, padx=5)
+
+        # Severity Filter
+        severity_frame = tk.Frame(filters_container, bg=MATRIX_BG)
+        severity_frame.pack(side=tk.LEFT, padx=5)
+        tk.Label(severity_frame, text="Severity:", **label_style).pack(side=tk.LEFT)
+        self.severity_var = tk.StringVar(value="All")
+        self.severity_var.trace('w', self.apply_threat_filters)
+        severities = ["All", "Low", "Medium", "High"]
+        self.severity_menu = tk.OptionMenu(severity_frame, self.severity_var, *severities)
+        self.severity_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=("Consolas", 10))
+        self.severity_menu.pack(side=tk.LEFT, padx=5)
 
         # Create Treeview for threat actions
         self.threat_tree = ttk.Treeview(
@@ -252,15 +262,6 @@ class AdminDashboard(tk.Frame):
         self.threat_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         y_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         x_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
-
-        # Refresh button
-        refresh_button = tk.Button(
-            self.threat_actions_tab,
-            text="Refresh",
-            command=self.load_threat_actions,
-            **button_style
-        )
-        refresh_button.pack(pady=10)
 
         # Load initial data
         self.load_threat_actions()
@@ -547,6 +548,31 @@ class AdminDashboard(tk.Frame):
         x = self.export_button.winfo_rootx()
         y = self.export_button.winfo_rooty() + self.export_button.winfo_height()
         self.export_menu.post(x, y)
+        
+        # Create a flag to track if we should hide the menu
+        self.should_hide_menu = False
+        
+        def check_and_hide():
+            if self.should_hide_menu:
+                self.export_menu.unpost()
+            else:
+                self.after(100, check_and_hide)
+        
+        def on_enter():
+            self.should_hide_menu = False
+        
+        def on_leave():
+            self.should_hide_menu = True
+            self.after(200, check_and_hide)
+        
+        # Bind events to both button and menu
+        self.export_button.bind('<Enter>', lambda e: on_enter())
+        self.export_button.bind('<Leave>', lambda e: on_leave())
+        self.export_menu.bind('<Enter>', lambda e: on_enter())
+        self.export_menu.bind('<Leave>', lambda e: on_leave())
+        
+        # Start checking if we should hide the menu
+        self.after(100, check_and_hide)
 
     def export_data(self, format_type):
         """Export threat actions data in the specified format."""
