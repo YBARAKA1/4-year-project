@@ -1,5 +1,5 @@
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, ttk
 import psycopg2
 from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG, RED, GREEN
 from login_window import LoginWindow, send_email_async 
@@ -26,18 +26,40 @@ class AdminDashboard(tk.Frame):
         listbox_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 10), "selectbackground": ACCENT_GREEN}
         entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 10), "insertbackground": MATRIX_GREEN}
 
-        # Main container with padding
-        main_container = tk.Frame(self, bg=MATRIX_BG)
-        main_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        # Create notebook for tabs
+        self.notebook = ttk.Notebook(self)
+        self.notebook.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+
+        # Create User Management tab
+        self.user_management_tab = tk.Frame(self.notebook, bg=MATRIX_BG)
+        self.notebook.add(self.user_management_tab, text="User Management")
+
+        # Create Threat Actions tab
+        self.threat_actions_tab = tk.Frame(self.notebook, bg=MATRIX_BG)
+        self.notebook.add(self.threat_actions_tab, text="Threat Actions")
+
+        # Setup User Management tab
+        self.setup_user_management_tab()
+        
+        # Setup Threat Actions tab
+        self.setup_threat_actions_tab()
+
+    def setup_user_management_tab(self):
+        """Setup the user management tab with existing functionality."""
+        # Configure styles
+        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 12)}
+        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 10, "bold"), "relief": "flat"}
+        listbox_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 10), "selectbackground": ACCENT_GREEN}
+        entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 10), "insertbackground": MATRIX_GREEN}
 
         # Title and Search Frame
-        title_frame = tk.Frame(main_container, bg=MATRIX_BG)
+        title_frame = tk.Frame(self.user_management_tab, bg=MATRIX_BG)
         title_frame.pack(fill=tk.X, pady=(0, 10))
 
         tk.Label(title_frame, text="Admin Dashboard - User Management", **label_style).pack(side=tk.LEFT)
 
         # Search Frame
-        search_frame = tk.Frame(main_container, bg=MATRIX_BG)
+        search_frame = tk.Frame(self.user_management_tab, bg=MATRIX_BG)
         search_frame.pack(fill=tk.X, pady=(0, 10))
 
         tk.Label(search_frame, text="Search:", **label_style).pack(side=tk.LEFT, padx=(0, 5))
@@ -47,7 +69,7 @@ class AdminDashboard(tk.Frame):
         self.search_entry.pack(side=tk.LEFT, padx=5)
 
         # Filters Frame
-        filters_frame = tk.Frame(main_container, bg=MATRIX_BG)
+        filters_frame = tk.Frame(self.user_management_tab, bg=MATRIX_BG)
         filters_frame.pack(fill=tk.X, pady=(0, 10))
 
         # Status Filter
@@ -72,7 +94,7 @@ class AdminDashboard(tk.Frame):
         self.purpose_menu.pack(side=tk.LEFT, padx=5)
 
         # Listbox with Scrollbar
-        listbox_frame = tk.Frame(main_container, bg=MATRIX_BG)
+        listbox_frame = tk.Frame(self.user_management_tab, bg=MATRIX_BG)
         listbox_frame.pack(fill=tk.BOTH, expand=True, pady=10)
 
         scrollbar = tk.Scrollbar(listbox_frame)
@@ -84,7 +106,7 @@ class AdminDashboard(tk.Frame):
         scrollbar.config(command=self.pending_listbox.yview)
 
         # Buttons Frame
-        button_frame = tk.Frame(main_container, bg=MATRIX_BG)
+        button_frame = tk.Frame(self.user_management_tab, bg=MATRIX_BG)
         button_frame.pack(fill=tk.X, pady=10)
 
         self.approve_button = tk.Button(button_frame, text="Approve", command=self.approve_user, **button_style)
@@ -103,6 +125,167 @@ class AdminDashboard(tk.Frame):
 
         # Load initial data
         self.load_pending_signups()
+
+    def setup_threat_actions_tab(self):
+        """Setup the threat actions tab to show threat management history."""
+        # Configure styles
+        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 12)}
+        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 10, "bold"), "relief": "flat"}
+
+        # Title
+        title_frame = tk.Frame(self.threat_actions_tab, bg=MATRIX_BG)
+        title_frame.pack(fill=tk.X, pady=(0, 10))
+
+        tk.Label(title_frame, text="Threat Management History", **label_style).pack(side=tk.LEFT)
+
+        # Filters Frame
+        filters_frame = tk.Frame(self.threat_actions_tab, bg=MATRIX_BG)
+        filters_frame.pack(fill=tk.X, pady=(0, 10))
+
+        # Action Type Filter
+        action_frame = tk.Frame(filters_frame, bg=MATRIX_BG)
+        action_frame.pack(side=tk.LEFT, padx=5)
+        tk.Label(action_frame, text="Action:", **label_style).pack(side=tk.LEFT)
+        self.action_var = tk.StringVar(value="All")
+        self.action_var.trace('w', self.apply_threat_filters)
+        actions = ["All", "Blocked", "Marked Safe"]
+        self.action_menu = tk.OptionMenu(action_frame, self.action_var, *actions)
+        self.action_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=("Consolas", 10))
+        self.action_menu.pack(side=tk.LEFT, padx=5)
+
+        # Severity Filter
+        severity_frame = tk.Frame(filters_frame, bg=MATRIX_BG)
+        severity_frame.pack(side=tk.LEFT, padx=5)
+        tk.Label(severity_frame, text="Severity:", **label_style).pack(side=tk.LEFT)
+        self.severity_var = tk.StringVar(value="All")
+        self.severity_var.trace('w', self.apply_threat_filters)
+        severities = ["All", "Low", "Medium", "High"]
+        self.severity_menu = tk.OptionMenu(severity_frame, self.severity_var, *severities)
+        self.severity_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=("Consolas", 10))
+        self.severity_menu.pack(side=tk.LEFT, padx=5)
+
+        # Create Treeview for threat actions
+        self.threat_tree = ttk.Treeview(
+            self.threat_actions_tab,
+            columns=("Time", "Action", "IP", "Threat Type", "Severity", "Action By"),
+            show="headings",
+            style="Matrix.Treeview"
+        )
+
+        # Configure columns
+        self.threat_tree.heading("Time", text="Time")
+        self.threat_tree.heading("Action", text="Action")
+        self.threat_tree.heading("IP", text="IP Address")
+        self.threat_tree.heading("Threat Type", text="Threat Type")
+        self.threat_tree.heading("Severity", text="Severity")
+        self.threat_tree.heading("Action By", text="Action By")
+
+        self.threat_tree.column("Time", width=150)
+        self.threat_tree.column("Action", width=100)
+        self.threat_tree.column("IP", width=150)
+        self.threat_tree.column("Threat Type", width=200)
+        self.threat_tree.column("Severity", width=100)
+        self.threat_tree.column("Action By", width=150)
+
+        # Add scrollbars
+        y_scrollbar = ttk.Scrollbar(self.threat_actions_tab, orient=tk.VERTICAL, command=self.threat_tree.yview)
+        x_scrollbar = ttk.Scrollbar(self.threat_actions_tab, orient=tk.HORIZONTAL, command=self.threat_tree.xview)
+        self.threat_tree.configure(yscrollcommand=y_scrollbar.set, xscrollcommand=x_scrollbar.set)
+
+        # Pack layout
+        self.threat_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        y_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        x_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
+
+        # Refresh button
+        refresh_button = tk.Button(
+            self.threat_actions_tab,
+            text="Refresh",
+            command=self.load_threat_actions,
+            **button_style
+        )
+        refresh_button.pack(pady=10)
+
+        # Load initial data
+        self.load_threat_actions()
+
+    def load_threat_actions(self):
+        """Load threat actions from the database."""
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+
+            # Clear existing items
+            for item in self.threat_tree.get_children():
+                self.threat_tree.delete(item)
+
+            # Get all threat actions
+            cur.execute("""
+                SELECT time, action, ip, threat_type, severity, action_by 
+                FROM threat_actions
+                ORDER BY time DESC
+            """)
+            threat_actions = cur.fetchall()
+
+            # Insert into treeview
+            for action in threat_actions:
+                self.threat_tree.insert("", "end", values=action)
+
+        except Exception as e:
+            print(f"[ERROR] Failed to load threat actions: {e}")
+            messagebox.showerror("Error", "Failed to load threat actions.")
+        finally:
+            cur.close()
+            conn.close()
+
+    def apply_threat_filters(self, *args):
+        """Apply filters to the threat actions treeview."""
+        action_filter = self.action_var.get()
+        severity_filter = self.severity_var.get()
+
+        # Clear existing items
+        for item in self.threat_tree.get_children():
+            self.threat_tree.delete(item)
+
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+
+            # Base query
+            query = """
+                SELECT time, action, ip, threat_type, severity, action_by 
+                FROM threat_actions 
+                WHERE 1=1
+            """
+            params = []
+
+            # Add action filter
+            if action_filter != "All":
+                query += " AND action = %s"
+                params.append(action_filter)
+
+            # Add severity filter
+            if severity_filter != "All":
+                query += " AND severity = %s"
+                params.append(severity_filter)
+
+            # Add ORDER BY
+            query += " ORDER BY time DESC"
+
+            # Execute query
+            cur.execute(query, params)
+            filtered_threats = cur.fetchall()
+
+            # Insert filtered results
+            for threat in filtered_threats:
+                self.threat_tree.insert("", "end", values=threat)
+
+        except Exception as e:
+            print(f"[ERROR] Failed to apply threat filters: {e}")
+            messagebox.showerror("Error", "Failed to apply filters.")
+        finally:
+            cur.close()
+            conn.close()
 
     def apply_filters(self, *args):
         """Apply filters to the listbox items."""

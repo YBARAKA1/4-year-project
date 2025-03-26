@@ -134,9 +134,9 @@ class ThreatAlertsView(ttk.Frame):
                 print(f"[DB] Attempting to log blocked threat: {threat_type}, {ip}, {timestamp}, {severity}, {action_by}")
                 
                 cur.execute(
-                    "INSERT INTO blocked_threats (threat_type, ip, time, severity, action_by) "
-                    "VALUES (%s, %s, %s, %s, %s)",
-                    (threat_type, ip, timestamp, severity, action_by)
+                    "INSERT INTO threat_actions (time, action, ip, threat_type, severity, action_by) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    (timestamp, 'Blocked', ip, threat_type, severity, action_by)
                 )
                 
                 conn.commit()
@@ -178,9 +178,9 @@ class ThreatAlertsView(ttk.Frame):
                 print(f"[DB] Attempting to log safe threat: {threat_type}, {ip}, {timestamp}, {severity}, {action_by}")
                 
                 cur.execute(
-                    "INSERT INTO safe_threats (threat_type, ip, time, severity, action_by) "
-                    "VALUES (%s, %s, %s, %s, %s)",
-                    (threat_type, ip, timestamp, severity, action_by)
+                    "INSERT INTO threat_actions (time, action, ip, threat_type, severity, action_by) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    (timestamp, 'Marked Safe', ip, threat_type, severity, action_by)
                 )
                 
                 conn.commit()

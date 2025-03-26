@@ -207,10 +207,12 @@ class IntrusionDetector:
 # ======================
 
 class IDSDashboard:
-    def __init__(self, root, role=None):
+    def __init__(self, root, role=None, first_name=None):
         self.root = root
         self.role = role  # Store the role
+        self.first_name = first_name  # Store the first name
         print(f"[DEBUG] Role received in IDSDashboard: {self.role}")
+        print(f"[DEBUG] First name received in IDSDashboard: {self.first_name}")
         
         # Colors
         self.bg_color = "#1a1a1a"
@@ -354,16 +356,51 @@ class IDSDashboard:
         self.login_window = LoginWindow(self.root, self.handle_login_success)
         self.root.wait_window(self.login_window)  # Wait for the login window to close
     
-    def handle_login_success(self, role):
-        """Handle successful login by updating the role and enabling admin features."""
-        print(f"[DEBUG] Login successful. Role: {role}")
+    def handle_login_success(self, role, first_name):
+        """Handle successful login."""
+        print(f"[DEBUG] Login successful. Role: {role}, First Name: {first_name}")
         self.logged_in = True
-        self.role = role  # Set the role attribute
-        self.login_button.config(text="Logout", command=self.logout)  # Change button to logout
-        self.enable_sidebar_buttons()  # Enable all sidebar buttons
-        self.update_gauge_roles(role)  # Update the role in CyberGauge instances
-        messagebox.showinfo("Login Successful", "You have successfully logged in!")
+        self.role = role
+        self.first_name = first_name
         
+        # Update role in CyberGauge instances safely
+        try:
+            if hasattr(self, 'cpu_gauge'):
+                self.cpu_gauge.set_role(role)
+                print(f"[DEBUG] Updated CPU gauge role: {role}")
+            if hasattr(self, 'mem_gauge'):
+                self.mem_gauge.set_role(role)
+                print(f"[DEBUG] Updated memory gauge role: {role}")
+        except Exception as e:
+            print(f"[ERROR] Failed to update gauge roles: {e}")
+        
+        # Update user section safely
+        try:
+            if hasattr(self, 'user_section_label') and self.user_section_label.winfo_exists():
+                self.user_section_label.config(text=f"{self.first_name}'s Section")
+            else:
+                # Create user section label if it doesn't exist
+                self.user_section_label = ttk.Label(
+                    self.top_frame,
+                    text=f"{self.first_name}'s Section",
+                    style="Header.TLabel"
+                )
+                self.user_section_label.pack(side=tk.LEFT, padx=10)
+        except Exception as e:
+            print(f"[ERROR] Failed to update user section: {e}")
+        
+        # Enable/disable buttons based on role
+        self.enable_sidebar_buttons()
+        
+        # Update status label
+        if hasattr(self, 'status_label'):
+            self.status_label.config(text=f"Logged in as {self.first_name} ({self.role})")
+        
+        # Update login button
+        self.login_button.config(text="Logout", command=self.logout)
+        
+        # Show success message
+        messagebox.showinfo("Success", f"Welcome back, {self.first_name}!")
 
     def update_gauge_roles(self, role):
         """Update the role in all CyberGauge instances."""
@@ -379,6 +416,8 @@ class IDSDashboard:
         self.login_button.config(text="Login", command=self.open_login)  # Reset button to login
         self.disable_sidebar_buttons()  # Disable all sidebar buttons except Dashboard
         self.show_view("Dashboard")  # Switch back to the Dashboard
+        if hasattr(self, 'user_section_label'):
+            self.user_section_label.destroy()  # Remove the user section label
         messagebox.showinfo("Logged Out", "You have been logged out.")
         
     def disable_sidebar_buttons(self):
@@ -568,9 +607,23 @@ class IDSDashboard:
         self.container = ttk.Frame(self.main_container)
         self.container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
+        # Initialize status label
+        self.status_label = ttk.Label(
+            self.top_frame,
+            text="Not logged in",
+            style="Header.TLabel"
+        )
+        self.status_label.pack(side=tk.RIGHT, padx=10)
+
         # Show default view
         self.show_view("Dashboard")
         
+        # Initialize CyberGauge instances if they don't exist
+        if not hasattr(self, 'cpu_gauge'):
+            self.cpu_gauge = CyberGauge(self.container, "CPU LOAD", MATRIX_BG, MATRIX_GREEN, role=self.role)
+        if not hasattr(self, 'mem_gauge'):
+            self.mem_gauge = CyberGauge(self.container, "MEMORY USAGE", MATRIX_BG, MATRIX_GREEN, role=self.role)
+
     def setup_sidebar(self, parent):
         # Sidebar styling with modern look
         self.style.configure("Sidebar.TFrame", 
@@ -710,9 +763,8 @@ class IDSDashboard:
         # Add filter controls with modern look
         filter_frame = ttk.LabelFrame(control_frame, 
                                     text="Packet Filter", 
-                                    padding=10,
-                                    style="Sidebar.TFrame")
-        filter_frame.pack(side=tk.LEFT, padx=5)
+                                    padding=10)
+        filter_frame.pack(side=tk.LEFT, padx=4)
 
         # Protocol filter with modern styling
         ttk.Label(filter_frame, 
@@ -1114,6 +1166,21 @@ Info: {values[5] if len(values) > 5 else 'N/A'}
         except Exception as e:
             print(f"Error processing packet: {e}")
 
+    def update_user_section(self):
+        """Update the user section with the logged-in user's first name."""
+        if hasattr(self, 'user_section_label'):
+            self.user_section_label.config(text=f"{self.first_name}'s Section")
+        else:
+            # Create user section label if it doesn't exist
+            self.user_section_label = tk.Label(
+                self.top_frame,
+                text=f"{self.first_name}'s Section",
+                font=("Segoe UI", 14, "bold"),
+                bg=MATRIX_BG,
+                fg=MATRIX_GREEN
+            )
+            self.user_section_label.pack(side=tk.LEFT, padx=10)
+
 # ======================
 # Cyber-styled Gauge
 # ======================
@@ -1218,7 +1285,6 @@ class CyberGauge(tk.Canvas):
 
     def show_context_menu(self, event):
         """Display a context menu with process management options."""
-        print(f"[DEBUG] Role in context menu: {self.role}") 
         # Close the existing context menu if it's open
         self.close_context_menu()
 
@@ -1235,7 +1301,7 @@ class CyberGauge(tk.Canvas):
         print(f"[DEBUG] Role in context menu: {self.role}")
 
         # Create a context menu with Matrix theme
-        self.context_menu = tk.Menu(self, tearoff=0, bg=DARK_GREEN, fg=MATRIX_GREEN)
+        self.context_menu = tk.Menu(self.process_window, tearoff=0, bg=DARK_GREEN, fg=MATRIX_GREEN)
         
         # Check if the user is an admin
         if self.role == 'admin':
@@ -1264,6 +1330,66 @@ class CyberGauge(tk.Canvas):
         
         # Show the context menu at the cursor position
         self.context_menu.post(event.x_root, event.y_root)
+        
+        # Track cursor position and menu state
+        self.menu_visible = True
+        self.check_cursor_position()
+
+    def check_cursor_position(self):
+        """Check if cursor is over the context menu or any submenus and close if not."""
+        if not self.context_menu:
+            return
+
+        try:
+            # Get the main menu's position and size
+            menu_x = self.context_menu.winfo_rootx()
+            menu_y = self.context_menu.winfo_rooty()
+            menu_width = self.context_menu.winfo_width()
+            menu_height = self.context_menu.winfo_height()
+
+            # Get current cursor position
+            cursor_x = self.process_window.winfo_pointerx()
+            cursor_y = self.process_window.winfo_pointery()
+
+            # Check if cursor is within main menu bounds
+            if (menu_x <= cursor_x <= menu_x + menu_width and 
+                menu_y <= cursor_y <= menu_y + menu_height):
+                self.menu_visible = True
+            else:
+                # Check if any submenus are open and if cursor is over them
+                submenu_visible = False
+                for menu in self.context_menu.winfo_children():
+                    if isinstance(menu, tk.Menu) and menu.winfo_viewable():
+                        submenu_x = menu.winfo_rootx()
+                        submenu_y = menu.winfo_rooty()
+                        submenu_width = menu.winfo_width()
+                        submenu_height = menu.winfo_height()
+                        
+                        if (submenu_x <= cursor_x <= submenu_x + submenu_width and 
+                            submenu_y <= cursor_y <= submenu_y + submenu_height):
+                            submenu_visible = True
+                            break
+                
+                if not submenu_visible:
+                    self.menu_visible = False
+                    self.close_context_menu()
+                    return
+                else:
+                    self.menu_visible = True
+
+            # Schedule next check
+            if self.menu_visible:
+                self.process_window.after(100, self.check_cursor_position)
+        except tk.TclError:
+            # Menu was destroyed
+            self.close_context_menu()
+
+    def close_context_menu(self, event=None):
+        """Close the context menu if it is open."""
+        if self.context_menu:
+            self.context_menu.destroy()
+            self.context_menu = None
+            self.menu_visible = False
 
     def manage_process(self, pid, action):
         """Manage a process based on the selected action."""
@@ -1333,9 +1459,6 @@ class CyberGauge(tk.Canvas):
         # Bind right-click to show context menu
         self.process_tree.bind("<Button-3>", self.show_context_menu)
         
-        # Bind left-click to close context menu
-        self.process_tree.bind("<Button-1>", self.close_context_menu)
-        
         # Bind window close event to close context menu
         self.process_window.protocol("WM_DELETE_WINDOW", self.close_process_window)
 
@@ -1354,12 +1477,6 @@ class CyberGauge(tk.Canvas):
             except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
                 continue
         return processes
-
-    def close_context_menu(self, event=None):
-        """Close the context menu if it is open."""
-        if self.context_menu:
-            self.context_menu.destroy()
-            self.context_menu = None
 
     def close_process_window(self):
         """Close the process window and context menu."""

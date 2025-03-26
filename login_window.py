@@ -63,6 +63,7 @@ class LoginWindow(tk.Toplevel):
         self.configure(bg=MATRIX_BG)
         self.logged_in = False
         self.role = None
+        self.first_name = None
         
         # Make window resizable
         self.resizable(False, False)
@@ -70,9 +71,6 @@ class LoginWindow(tk.Toplevel):
         # Center the window
         self.center_window()
         
-        # Bind the window close event to a cleanup method
-        self.protocol("WM_DELETE_WINDOW", self.on_close)
-
         # Configure styles
         title_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 16, "bold")}
         label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 12)}
@@ -80,24 +78,25 @@ class LoginWindow(tk.Toplevel):
         button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 12, "bold"), "relief": "flat", "width": 20}
 
         # Create main frame with padding
-        main_frame = tk.Frame(self, bg=MATRIX_BG, padx=40, pady=40)
-        main_frame.pack(expand=True, fill="both")
+        self.main_frame = tk.Frame(self, bg=MATRIX_BG, padx=40, pady=40)
+        self.main_frame.pack(expand=True, fill="both")
 
         # Title
-        title_label = tk.Label(main_frame, text="Welcome Back", **title_style)
-        title_label.pack(pady=(0, 30))
+        self.title_label = tk.Label(self.main_frame, text="Welcome Back", **title_style)
+        self.title_label.pack(pady=(0, 30))
 
         # Email Frame
-        email_frame = tk.Frame(main_frame, bg=MATRIX_BG)
-        email_frame.pack(fill="x", pady=10)
+        self.email_frame = tk.Frame(self.main_frame, bg=MATRIX_BG)
+        self.email_frame.pack(fill="x", pady=10)
         
         # Email Label and Entry
-        tk.Label(email_frame, text="Email:", **label_style).pack(anchor="w")
-        self.email_entry = tk.Entry(email_frame, **entry_style)
+        self.email_label = tk.Label(self.email_frame, text="Email:", **label_style)
+        self.email_label.pack(anchor="w")
+        self.email_entry = tk.Entry(self.email_frame, **entry_style)
         self.email_entry.pack(fill="x", pady=(5, 0))
 
         # Token Frame (initially hidden)
-        self.token_frame = tk.Frame(main_frame, bg=MATRIX_BG)
+        self.token_frame = tk.Frame(self.main_frame, bg=MATRIX_BG)
         self.token_label = tk.Label(self.token_frame, text="Token:", **label_style)
         self.token_entry = tk.Entry(self.token_frame, **entry_style)
         
@@ -107,7 +106,7 @@ class LoginWindow(tk.Toplevel):
         self.token_frame.pack_forget()  # Hide the token frame initially
 
         # Buttons Frame
-        self.buttons_frame = tk.Frame(main_frame, bg=MATRIX_BG)
+        self.buttons_frame = tk.Frame(self.main_frame, bg=MATRIX_BG)
         self.buttons_frame.pack(pady=30)
 
         # Login Button
@@ -124,7 +123,10 @@ class LoginWindow(tk.Toplevel):
         self.signup_button.bind("<Enter>", lambda e: self.signup_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
         self.signup_button.bind("<Leave>", lambda e: self.signup_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
 
-        print("[DEBUG] LoginWindow initialized")
+        # Make window modal
+        self.transient(parent)
+        self.grab_set()
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def center_window(self):
         """Center the window on the screen."""
@@ -142,7 +144,6 @@ class LoginWindow(tk.Toplevel):
 
         if not email or not entered_token:
             messagebox.showerror("Error", "Please enter both email and token.")
-            self.grab_set()
             return
 
         try:
@@ -150,33 +151,64 @@ class LoginWindow(tk.Toplevel):
             cur = conn.cursor()
             print("[DEBUG] Verifying token in database")
 
-            # Fetch user details including role
-            cur.execute("SELECT token, role FROM users WHERE email = %s", (email,))
+            # First check if the user exists and is approved
+            cur.execute("SELECT status FROM users WHERE email = %s", (email,))
+            status_result = cur.fetchone()
+            
+            if not status_result:
+                print(f"[AUTH] Email not found: {email}")
+                messagebox.showerror("Error", "Email not found. Please sign up or use correct details.")
+                return
+
+            if status_result[0] != 'approved':
+                print(f"[AUTH] Account not approved: {email}")
+                messagebox.showerror("Error", "Your account is not approved yet. Please wait for admin approval.")
+                return
+
+            # Now verify the token
+            cur.execute("SELECT token, role, first_name FROM users WHERE email = %s", (email,))
             result = cur.fetchone()
 
-            if not result or result[0] != entered_token:
-                print(f"[AUTH] Invalid token for {email}")
-                messagebox.showerror("Error", "Invalid token.")
-                self.grab_set()
+            if not result:
+                print(f"[AUTH] User details not found: {email}")
+                messagebox.showerror("Error", "User details not found.")
+                return
+
+            stored_token = result[0]
+            if not stored_token:
+                print(f"[AUTH] No token found for user: {email}")
+                messagebox.showerror("Error", "No token found. Please request a new token.")
+                return
+
+            if stored_token != entered_token:
+                print(f"[AUTH] Invalid token for {email}. Expected: {stored_token}, Got: {entered_token}")
+                messagebox.showerror("Error", "Invalid token. Please request a new token.")
                 return
 
             print("[AUTH] Login successful")
             self.logged_in = True
             self.role = result[1]  # Set the role attribute
-            self.destroy()  # Close the login window
+            self.first_name = result[2]  # Set the first name attribute
 
-            # Call the callback function with the role
+            # Call the callback function with the role and first name
             if self.on_login_success:
-                self.on_login_success(self.role)
+                self.on_login_success(self.role, self.first_name)
+            
+            self.destroy()  # Close the login window after callback
 
         except Exception as e:
             print(f"[ERROR] Login failed: {str(e)}")
-            messagebox.showerror("Error", "Login failed")
-            self.grab_set()
+            print(f"[ERROR] Error type: {type(e)}")
+            import traceback
+            print(f"[ERROR] Traceback: {traceback.format_exc()}")
+            messagebox.showerror("Error", f"Login failed: {str(e)}")
         finally:
-            cur.close()
-            conn.close()
-            print("[DEBUG] Database connection closed")
+            try:
+                cur.close()
+                conn.close()
+                print("[DEBUG] Database connection closed")
+            except Exception as e:
+                print(f"[ERROR] Error closing database connection: {e}")
 
     def check_email(self):
         email = self.email_entry.get()
@@ -184,7 +216,6 @@ class LoginWindow(tk.Toplevel):
 
         if not email:
             messagebox.showerror("Error", "Please enter your email.")
-            self.grab_set()
             return
 
         try:
@@ -197,14 +228,12 @@ class LoginWindow(tk.Toplevel):
             result = cur.fetchone()
 
             if not result:
-                messagebox.showerror("Error", "My guy, you know i know that this isn't right. Email not found. Please sign up or use correct details.")
-                self.grab_set()
+                messagebox.showerror("Error", "Email not found. Please sign up or use correct details.")
                 return
 
             status = result[0]
             if status != 'approved':
-                messagebox.showinfo("Pending Approval", "Relax my G, Your account is still pending approval. Please wait for admin approval.")
-                self.grab_set()
+                messagebox.showinfo("Pending Approval", "Your account is still pending approval. Please wait for admin approval.")
                 return
 
             # Generate and store token
@@ -220,23 +249,19 @@ class LoginWindow(tk.Toplevel):
             self.login_button.config(text="Login", command=self.login)
 
             # Send token via email in background
-            send_email_async(email, "Your Login Token", f"Yooo, My guy your token is: {token}")
+            send_email_async(email, "Your Login Token", f"Your token is: {token}")
 
         except Exception as e:
             print(f"[ERROR] Database error: {str(e)}")
             messagebox.showerror("Error", "Database operation failed")
-            self.grab_set()
         finally:
             cur.close()
             conn.close()
             print("[DEBUG] Database connection closed")
     
-    
     def on_close(self):
         """Handle the window close event."""
-        self.destroy()  # Close the window
-        if hasattr(self.parent, 'login_window'):
-            del self.parent.login_window  # Clear the reference to the login window
+        self.destroy()
 
     def open_signup(self):
         self.withdraw()
