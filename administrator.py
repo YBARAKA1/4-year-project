@@ -3,6 +3,14 @@ from tkinter import messagebox, ttk
 import psycopg2
 from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG, RED, GREEN
 from login_window import LoginWindow, send_email_async 
+import pandas as pd
+import csv
+from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Table, TableStyle
+import os
+from datetime import datetime
+
 # Database connection
 def get_db_connection():
     return psycopg2.connect(
@@ -132,7 +140,7 @@ class AdminDashboard(tk.Frame):
         label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 12)}
         button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 10, "bold"), "relief": "flat"}
 
-        # Title
+        # Title Frame
         title_frame = tk.Frame(self.threat_actions_tab, bg=MATRIX_BG)
         title_frame.pack(fill=tk.X, pady=(0, 10))
 
@@ -142,8 +150,12 @@ class AdminDashboard(tk.Frame):
         filters_frame = tk.Frame(self.threat_actions_tab, bg=MATRIX_BG)
         filters_frame.pack(fill=tk.X, pady=(0, 10))
 
+        # Left side filters
+        filters_left = tk.Frame(filters_frame, bg=MATRIX_BG)
+        filters_left.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
         # Action Type Filter
-        action_frame = tk.Frame(filters_frame, bg=MATRIX_BG)
+        action_frame = tk.Frame(filters_left, bg=MATRIX_BG)
         action_frame.pack(side=tk.LEFT, padx=5)
         tk.Label(action_frame, text="Action:", **label_style).pack(side=tk.LEFT)
         self.action_var = tk.StringVar(value="All")
@@ -154,7 +166,7 @@ class AdminDashboard(tk.Frame):
         self.action_menu.pack(side=tk.LEFT, padx=5)
 
         # Severity Filter
-        severity_frame = tk.Frame(filters_frame, bg=MATRIX_BG)
+        severity_frame = tk.Frame(filters_left, bg=MATRIX_BG)
         severity_frame.pack(side=tk.LEFT, padx=5)
         tk.Label(severity_frame, text="Severity:", **label_style).pack(side=tk.LEFT)
         self.severity_var = tk.StringVar(value="All")
@@ -163,6 +175,50 @@ class AdminDashboard(tk.Frame):
         self.severity_menu = tk.OptionMenu(severity_frame, self.severity_var, *severities)
         self.severity_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=("Consolas", 10))
         self.severity_menu.pack(side=tk.LEFT, padx=5)
+
+        # Right side export button
+        export_frame = tk.Frame(filters_frame, bg=MATRIX_BG)
+        export_frame.pack(side=tk.RIGHT, padx=5)
+
+        # Export Button with Menu
+        self.export_button = tk.Button(
+            export_frame,
+            text="Export Data",
+            command=self.show_export_menu,
+            width=12,
+            **button_style
+        )
+        self.export_button.pack(side=tk.RIGHT)
+
+        # Export Menu with improved styling
+        self.export_menu = tk.Menu(
+            self.export_button,
+            tearoff=0,
+            bg=DARK_GREEN,
+            fg=MATRIX_GREEN,
+            activebackground=ACCENT_GREEN,
+            activeforeground=MATRIX_BG,
+            font=("Consolas", 10)
+        )
+        self.export_menu.add_command(
+            label="Export as PDF",
+            command=lambda: self.export_data("pdf"),
+            font=("Consolas", 10)
+        )
+        self.export_menu.add_command(
+            label="Export as Excel",
+            command=lambda: self.export_data("excel"),
+            font=("Consolas", 10)
+        )
+        self.export_menu.add_command(
+            label="Export as CSV",
+            command=lambda: self.export_data("csv"),
+            font=("Consolas", 10)
+        )
+
+        # Add hover effects
+        self.export_button.bind("<Enter>", lambda e: self.export_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+        self.export_button.bind("<Leave>", lambda e: self.export_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
 
         # Create Treeview for threat actions
         self.threat_tree = ttk.Treeview(
@@ -485,6 +541,83 @@ class AdminDashboard(tk.Frame):
         finally:
             cur.close()
             conn.close()
+
+    def show_export_menu(self, event=None):
+        """Show the export menu below the export button."""
+        x = self.export_button.winfo_rootx()
+        y = self.export_button.winfo_rooty() + self.export_button.winfo_height()
+        self.export_menu.post(x, y)
+
+    def export_data(self, format_type):
+        """Export threat actions data in the specified format."""
+        try:
+            # Get all data from the treeview
+            data = []
+            for item in self.threat_tree.get_children():
+                data.append(self.threat_tree.item(item)['values'])
+
+            if not data:
+                messagebox.showwarning("Warning", "No data to export.", parent=self)
+                return
+
+            # Create filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            filename = f"threat_actions_{timestamp}"
+
+            if format_type == "pdf":
+                self.export_to_pdf(data, filename)
+            elif format_type == "excel":
+                self.export_to_excel(data, filename)
+            elif format_type == "csv":
+                self.export_to_csv(data, filename)
+
+        except Exception as e:
+            print(f"[ERROR] Failed to export data: {e}")
+            messagebox.showerror("Error", "Failed to export data.", parent=self)
+
+    def export_to_pdf(self, data, filename):
+        """Export data to PDF format."""
+        doc = SimpleDocTemplate(f"{filename}.pdf", pagesize=letter)
+        elements = []
+
+        # Prepare table data
+        table_data = [["Time", "Action", "IP", "Threat Type", "Severity", "Action By"]] + data
+
+        # Create table
+        table = Table(table_data)
+        table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.green),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 14),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.black),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.green),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 12),
+            ('GRID', (0, 0), (-1, -1), 1, colors.green),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ]))
+
+        elements.append(table)
+        doc.build(elements)
+        messagebox.showinfo("Success", f"Data exported to {filename}.pdf", parent=self)
+
+    def export_to_excel(self, data, filename):
+        """Export data to Excel format."""
+        df = pd.DataFrame(data, columns=["Time", "Action", "IP", "Threat Type", "Severity", "Action By"])
+        df.to_excel(f"{filename}.xlsx", index=False)
+        messagebox.showinfo("Success", f"Data exported to {filename}.xlsx", parent=self)
+
+    def export_to_csv(self, data, filename):
+        """Export data to CSV format."""
+        with open(f"{filename}.csv", 'w', newline='') as file:
+            writer = csv.writer(file)
+            writer.writerow(["Time", "Action", "IP", "Threat Type", "Severity", "Action By"])
+            writer.writerows(data)
+        messagebox.showinfo("Success", f"Data exported to {filename}.csv", parent=self)
 
 # Admin Login Window with Matrix Theme
 class AdminLoginWindow(tk.Toplevel):

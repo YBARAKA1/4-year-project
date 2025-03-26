@@ -155,51 +155,109 @@ class PortScannerView(ttk.Frame):
         self.setup_gui()
         
     def setup_gui(self):
+        # Configure styles
+        style = ttk.Style()
+        style.configure("PortScanner.TFrame", background=MATRIX_BG)
+        style.configure("PortScanner.TLabel", 
+                       background=MATRIX_BG, 
+                       foreground=MATRIX_GREEN,
+                       font=("Consolas", 12))
+        style.configure("PortScanner.TButton",
+                       background=DARK_GREEN,
+                       foreground=MATRIX_GREEN,
+                       font=("Consolas", 10),
+                       borderwidth=0)
+        style.map("PortScanner.TButton",
+                 background=[("active", ACCENT_GREEN)],
+                 foreground=[("active", MATRIX_BG)])
+        style.configure("PortScanner.TLabelframe",
+                       background=MATRIX_BG,
+                       foreground=MATRIX_GREEN)
+        style.configure("PortScanner.TLabelframe.Label",
+                       background=MATRIX_BG,
+                       foreground=MATRIX_GREEN,
+                       font=("Consolas", 12, "bold"))
+        style.configure("PortScanner.TEntry",
+                       fieldbackground=DARK_GREEN,
+                       foreground=MATRIX_GREEN,
+                       insertbackground=MATRIX_GREEN)
+        style.configure("PortScanner.TCombobox",
+                       fieldbackground=DARK_GREEN,
+                       foreground=MATRIX_GREEN,
+                       selectbackground=ACCENT_GREEN,
+                       selectforeground=MATRIX_BG)
+        style.configure("PortScanner.Treeview",
+                       background=DARK_GREEN,
+                       foreground=MATRIX_GREEN,
+                       fieldbackground=DARK_GREEN,
+                       rowheight=25)
+        style.configure("PortScanner.Treeview.Heading",
+                       background=DARK_GREEN,
+                       foreground=MATRIX_GREEN,
+                       font=("Consolas", 10, "bold"))
+        style.map("PortScanner.Treeview",
+                 background=[("selected", ACCENT_GREEN)],
+                 foreground=[("selected", MATRIX_BG)])
+        
+        # Configure scrollbar style
+        style.configure("PortScanner.Vertical.TScrollbar",
+                       background=DARK_GREEN,
+                       foreground=MATRIX_GREEN,
+                       troughcolor=MATRIX_BG,
+                       width=10,
+                       arrowsize=13)
+        style.map("PortScanner.Vertical.TScrollbar",
+                 background=[("active", ACCENT_GREEN)],
+                 foreground=[("active", MATRIX_BG)])
+
         # Main container with padding
-        main_frame = ttk.Frame(self)
+        main_frame = ttk.Frame(self, style="PortScanner.TFrame")
         main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
-        # Title
+        # Title with Matrix styling
         title_label = ttk.Label(
             main_frame,
             text="PORT SCANNER",
-            style="Header.TLabel"
+            style="PortScanner.TLabel",
+            font=("Consolas", 24, "bold")
         )
         title_label.pack(pady=(0, 20))
         
-        # Input frame with modern styling
-        input_frame = ttk.LabelFrame(
+        # Scan Configuration Frame
+        config_frame = ttk.LabelFrame(
             main_frame,
-            text="Scan Configuration",
-            padding=15
+            text="SCAN CONFIGURATION",
+            padding=15,
+            style="PortScanner.TLabelframe"
         )
-        input_frame.pack(fill=tk.X, pady=(0, 20))
+        config_frame.pack(fill=tk.X, pady=(0, 20))
         
-        # Target display
-        target_frame = ttk.Frame(input_frame)
+        # Target IP Frame
+        target_frame = ttk.Frame(config_frame, style="PortScanner.TFrame")
         target_frame.pack(fill=tk.X, pady=(0, 10))
         
         ttk.Label(
             target_frame,
             text="Target IP:",
-            style="Header.TLabel"
+            style="PortScanner.TLabel"
         ).pack(side=tk.LEFT, padx=5)
         
         target_label = ttk.Label(
             target_frame,
             text=self.local_ip,
-            style="Header.TLabel"
+            style="PortScanner.TLabel",
+            font=("Consolas", 12, "bold")
         )
         target_label.pack(side=tk.LEFT, padx=5)
         
-        # Port range frame
-        port_frame = ttk.Frame(input_frame)
-        port_frame.pack(fill=tk.X)
+        # Port Range Frame
+        port_frame = ttk.Frame(config_frame, style="PortScanner.TFrame")
+        port_frame.pack(fill=tk.X, pady=(0, 10))
         
         ttk.Label(
             port_frame,
             text="Port Range:",
-            style="Header.TLabel"
+            style="PortScanner.TLabel"
         ).pack(side=tk.LEFT, padx=5)
         
         self.start_port_var = tk.StringVar(value="1")
@@ -209,39 +267,92 @@ class PortScannerView(ttk.Frame):
             port_frame,
             textvariable=self.start_port_var,
             width=6,
-            style="Sidebar.TEntry"
+            style="PortScanner.TEntry"
         )
         self.start_port_entry.pack(side=tk.LEFT, padx=2)
         
         ttk.Label(
             port_frame,
             text="-",
-            style="Header.TLabel"
+            style="PortScanner.TLabel"
         ).pack(side=tk.LEFT)
         
         self.end_port_entry = ttk.Entry(
             port_frame,
             textvariable=self.end_port_var,
             width=6,
-            style="Sidebar.TEntry"
+            style="PortScanner.TEntry"
         )
         self.end_port_entry.pack(side=tk.LEFT, padx=2)
         
-        # Scan button
+        # Port Control Frame
+        port_control_frame = ttk.Frame(config_frame, style="PortScanner.TFrame")
+        port_control_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        # Close port button
+        self.close_port_button = ttk.Button(
+            port_control_frame,
+            text="CLOSE PORT",
+            command=self.close_selected_port,
+            style="PortScanner.TButton",
+            width=15,
+            state=tk.DISABLED
+        )
+        self.close_port_button.pack(side=tk.LEFT, padx=5)
+        
+        # Open port button
+        self.open_port_button = ttk.Button(
+            port_control_frame,
+            text="OPEN PORT",
+            command=self.open_selected_port,
+            style="PortScanner.TButton",
+            width=15,
+            state=tk.DISABLED
+        )
+        self.open_port_button.pack(side=tk.LEFT, padx=5)
+        
+        # Filter and Scan Frame
+        filter_scan_frame = ttk.Frame(config_frame, style="PortScanner.TFrame")
+        filter_scan_frame.pack(fill=tk.X, pady=(10, 0))
+        
+        # Filter Frame
+        filter_frame = ttk.Frame(filter_scan_frame, style="PortScanner.TFrame")
+        filter_frame.pack(side=tk.LEFT, padx=5)
+        
+        ttk.Label(
+            filter_frame,
+            text="Filter:",
+            style="PortScanner.TLabel"
+        ).pack(side=tk.LEFT, padx=5)
+        
+        self.filter_var = tk.StringVar(value="All")
+        filter_combo = ttk.Combobox(
+            filter_frame,
+            textvariable=self.filter_var,
+            values=["All", "Open", "Closed"],
+            state="readonly",
+            width=10,
+            style="PortScanner.TCombobox"
+        )
+        filter_combo.pack(side=tk.LEFT, padx=5)
+        filter_combo.bind('<<ComboboxSelected>>', self.apply_filter)
+        
+        # Scan Button
         self.scan_button = ttk.Button(
-            input_frame,
-            text="Start Scan",
+            filter_scan_frame,
+            text="START SCAN",
             command=self.start_scan,
-            style="Sidebar.TButton",
+            style="PortScanner.TButton",
             width=15
         )
         self.scan_button.pack(side=tk.RIGHT, padx=5)
         
-        # Results frame
+        # Results Frame
         results_frame = ttk.LabelFrame(
             main_frame,
-            text="Scan Results",
-            padding=15
+            text="SCAN RESULTS",
+            padding=15,
+            style="PortScanner.TLabelframe"
         )
         results_frame.pack(fill=tk.BOTH, expand=True)
         
@@ -251,14 +362,14 @@ class PortScannerView(ttk.Frame):
             results_frame,
             columns=columns,
             show='headings',
-            style="Packet.Treeview",
+            style="PortScanner.Treeview",
             height=15
         )
         
         # Configure columns
-        self.results_tree.heading("Port", text="Port")
-        self.results_tree.heading("Status", text="Status")
-        self.results_tree.heading("Service", text="Service")
+        self.results_tree.heading("Port", text="PORT")
+        self.results_tree.heading("Status", text="STATUS")
+        self.results_tree.heading("Service", text="SERVICE")
         
         self.results_tree.column("Port", width=100)
         self.results_tree.column("Status", width=100)
@@ -269,7 +380,7 @@ class PortScannerView(ttk.Frame):
             results_frame,
             orient="vertical",
             command=self.results_tree.yview,
-            style="Vertical.TScrollbar"
+            style="PortScanner.Vertical.TScrollbar"
         )
         
         self.results_tree.configure(yscrollcommand=scrollbar.set)
@@ -278,14 +389,21 @@ class PortScannerView(ttk.Frame):
         self.results_tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
+        # Bind selection event
+        self.results_tree.bind('<<TreeviewSelect>>', self.on_select)
+        
         # Status bar
-        self.status_var = tk.StringVar(value="Ready")
+        self.status_var = tk.StringVar(value="READY")
         self.status_bar = ttk.Label(
             main_frame,
             textvariable=self.status_var,
-            style="Header.TLabel"
+            style="PortScanner.TLabel",
+            font=("Consolas", 10, "bold")
         )
         self.status_bar.pack(fill=tk.X, pady=(10, 0))
+        
+        # Store all results
+        self.all_results = []
             
     def start_scan(self):
         """Start the port scanning process."""
@@ -302,6 +420,7 @@ class PortScannerView(ttk.Frame):
                 return
             
             # Clear previous results
+            self.all_results = []
             for item in self.results_tree.get_children():
                 self.results_tree.delete(item)
             
@@ -331,14 +450,17 @@ class PortScannerView(ttk.Frame):
                     sock.settimeout(1)
                     result = sock.connect_ex((target, port))
                     
-                    if result == 0:
-                        try:
-                            service = socket.getservbyport(port)
-                        except:
-                            service = "Unknown"
-                        
-                        # Update UI in the main thread
-                        self.after(0, self.add_result, port, "Open", service)
+                    status = "Open" if result == 0 else "Closed"
+                    try:
+                        service = socket.getservbyport(port) if status == "Open" else "N/A"
+                    except:
+                        service = "Unknown" if status == "Open" else "N/A"
+                    
+                    # Store result
+                    self.all_results.append((port, status, service))
+                    
+                    # Update UI in the main thread
+                    self.after(0, self.add_result, port, status, service)
                     
                     sock.close()
                     
@@ -366,6 +488,118 @@ class PortScannerView(ttk.Frame):
         self.scan_button.config(state=tk.NORMAL)
         self.status_var.set("Scan failed")
         messagebox.showerror("Error", error_message)
+        
+    def apply_filter(self, event=None):
+        """Apply the selected filter to the results."""
+        filter_value = self.filter_var.get()
+        
+        # Clear current display
+        for item in self.results_tree.get_children():
+            self.results_tree.delete(item)
+            
+        # Apply filter
+        for port, status, service in self.all_results:
+            if filter_value == "All" or status == filter_value:
+                self.results_tree.insert("", "end", values=(port, status, service))
+                
+    def on_select(self, event):
+        """Handle selection of a port in the Treeview."""
+        selected_items = self.results_tree.selection()
+        if selected_items:
+            item = self.results_tree.item(selected_items[0])
+            status = item['values'][1]
+            # Enable appropriate button based on port status
+            self.close_port_button.config(state=tk.NORMAL if status == "Open" else tk.DISABLED)
+            self.open_port_button.config(state=tk.NORMAL if status == "Closed" else tk.DISABLED)
+        else:
+            self.close_port_button.config(state=tk.DISABLED)
+            self.open_port_button.config(state=tk.DISABLED)
+            
+    def close_selected_port(self):
+        """Attempt to close the selected port."""
+        selected_items = self.results_tree.selection()
+        if not selected_items:
+            return
+            
+        item = self.results_tree.item(selected_items[0])
+        port = item['values'][0]
+        
+        try:
+            # Create a socket and try to connect
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.settimeout(1)
+            result = sock.connect_ex((self.local_ip, port))
+            
+            if result == 0:
+                # Port is open, try to close it
+                sock.shutdown(socket.SHUT_RDWR)
+                sock.close()
+                
+                # Update the UI
+                self.results_tree.set(selected_items[0], "Status", "Closed")
+                self.results_tree.set(selected_items[0], "Service", "N/A")
+                
+                # Update stored results
+                for i, (p, s, sv) in enumerate(self.all_results):
+                    if p == port:
+                        self.all_results[i] = (port, "Closed", "N/A")
+                        break
+                
+                messagebox.showinfo("Success", f"Port {port} has been closed")
+            else:
+                messagebox.showinfo("Info", f"Port {port} is already closed")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to close port {port}: {str(e)}")
+        finally:
+            sock.close()
+            self.close_port_button.config(state=tk.DISABLED)
+
+    def open_selected_port(self):
+        """Attempt to open the selected port."""
+        selected_items = self.results_tree.selection()
+        if not selected_items:
+            return
+            
+        item = self.results_tree.item(selected_items[0])
+        port = item['values'][0]
+        
+        try:
+            # Create a socket and bind it to the port
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            result = sock.bind((self.local_ip, port))
+            
+            if result is None:
+                # Port is now open
+                sock.listen(1)
+                
+                # Update the UI
+                self.results_tree.set(selected_items[0], "Status", "Open")
+                try:
+                    service = socket.getservbyport(port)
+                except:
+                    service = "Unknown"
+                self.results_tree.set(selected_items[0], "Service", service)
+                
+                # Update stored results
+                for i, (p, s, sv) in enumerate(self.all_results):
+                    if p == port:
+                        self.all_results[i] = (port, "Open", service)
+                        break
+                
+                messagebox.showinfo("Success", f"Port {port} has been opened")
+            else:
+                messagebox.showinfo("Info", f"Port {port} is already open")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open port {port}: {str(e)}")
+        finally:
+            try:
+                sock.close()
+            except:
+                pass
+            self.open_port_button.config(state=tk.DISABLED)
 
 if __name__ == "__main__":
     run_gui()

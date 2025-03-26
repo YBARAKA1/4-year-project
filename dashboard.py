@@ -260,7 +260,105 @@ class IDSDashboard:
         
         # Bind window close event
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
+    def setup_gui(self):
+        """Set up the main GUI components."""
+        self.root.title("MATRIX IDS 2.0")
+        self.root.attributes('-fullscreen', True)
+        self.root.configure(bg=MATRIX_BG)
+
+        # Configure styles with modern look
+        self.style = ttk.Style()
+        self.style.theme_use('clam')
         
+        # Configure base styles
+        self.style.configure(".", 
+                           background=MATRIX_BG, 
+                           foreground=MATRIX_GREEN,
+                           font=("Segoe UI", 10))
+        
+        # Configure header style
+        self.style.configure("Header.TLabel", 
+                           font=("Segoe UI", 14, "bold"),
+                           background=MATRIX_BG,
+                           foreground=MATRIX_GREEN,
+                           padding=10)
+        
+        # Configure Treeview with modern look
+        self.style.configure("Treeview", 
+                            background=DARK_GREEN,
+                            foreground=MATRIX_GREEN,
+                            fieldbackground=DARK_GREEN,
+                           borderwidth=0,
+                           rowheight=25)
+        
+        # Configure Treeview headings
+        self.style.configure("Treeview.Heading",
+                           background=DARK_GREEN,
+                           foreground=MATRIX_GREEN,
+                           font=("Segoe UI", 10, "bold"))
+        
+        # Configure Treeview selection
+        self.style.map('Treeview', 
+                      background=[('selected', ACCENT_GREEN)],
+                      foreground=[('selected', MATRIX_BG)])
+        
+        # Configure Button styles
+        self.style.configure("Sidebar.TButton",
+                           background=DARK_GREEN,
+                           foreground=MATRIX_GREEN,
+                           font=("Segoe UI", 10),
+                           padding=10,
+                            borderwidth=0)
+        
+        self.style.map("Sidebar.TButton",
+                      background=[('active', ACCENT_GREEN)],
+                      foreground=[('active', MATRIX_BG)])
+
+        # Top frame for toggle button with modern styling
+        self.top_frame = ttk.Frame(self.root)
+        self.top_frame.pack(fill=tk.X, padx=5, pady=5)
+
+        # Modern toggle button
+        self.toggle_button = ttk.Button(
+            self.top_frame, 
+            text="☰", 
+            style="Sidebar.TButton",
+            command=self.toggle_sidebar,
+            width=3
+        )
+        self.toggle_button.pack(side=tk.LEFT)
+
+        # Main container with fixed layout
+        self.main_container = ttk.Frame(self.root)
+        self.main_container.pack(fill=tk.BOTH, expand=True)
+
+        # Sidebar with modern styling
+        self.sidebar = ttk.Frame(self.main_container, width=200, style="Sidebar.TFrame")
+        self.setup_sidebar(self.sidebar)
+        self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
+
+        # Main content area with padding
+        self.container = ttk.Frame(self.main_container)
+        self.container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Initialize status label
+        self.status_label = ttk.Label(
+            self.top_frame,
+            text="Not logged in",
+            style="Header.TLabel"
+        )
+        self.status_label.pack(side=tk.RIGHT, padx=10)
+
+        # Show default view
+        self.show_view("Dashboard")
+        
+        # Initialize CyberGauge instances if they don't exist
+        if not hasattr(self, 'cpu_gauge'):
+            self.cpu_gauge = CyberGauge(self.container, "CPU LOAD", MATRIX_BG, MATRIX_GREEN, role=self.role)
+        if not hasattr(self, 'mem_gauge'):
+            self.mem_gauge = CyberGauge(self.container, "MEMORY USAGE", MATRIX_BG, MATRIX_GREEN, role=self.role)
+
     def on_closing(self):
         """Handle window closing with animation."""
         self.start_closing_animation()
@@ -458,20 +556,21 @@ class IDSDashboard:
             elif view_name == "TrafficAnalysis":
                 self.views[view_name] = TrafficAnalysisView(self.container)
             elif view_name == "ThreatAlerts":
-                self.views[view_name] = ThreatAlertsView(self.container)
+                # Pass the user information to ThreatAlertsView
+                self.views[view_name] = ThreatAlertsView(self.container, self.role, self.first_name)
             elif view_name == "Administrator":
                 self.views[view_name] = AdminDashboard(self.container)
             elif view_name == "Terminal":
-                from terminal import TerminalView  # Import the TerminalView
+                from terminal import TerminalView
                 self.views[view_name] = TerminalView(self.container)
             elif view_name == "PortScanner":
-                from port_scanner import PortScannerView  # Import the PortScannerView
+                from port_scanner import PortScannerView
                 self.views[view_name] = PortScannerView(self.container)
 
         # Display the view
         self.current_view = self.views[view_name]
         self.current_view.pack(fill=tk.BOTH, expand=True)
-    
+        
     def show_terminal(self):
         """Show the Terminal view."""
         self.show_view("Terminal")
@@ -495,8 +594,6 @@ class IDSDashboard:
         # GUI update thread
         self.root.after(1000, self.update_gui)
         
-        
-
     def create_dashboard_view(self):
         """Dashboard view with system stats and traffic overview."""
         frame = ttk.Frame(self.container)
@@ -525,104 +622,6 @@ class IDSDashboard:
         frame = ttk.Frame(self.container)
         self.setup_packet_table(frame)
         return frame
-
-    def setup_gui(self):
-        self.root.title("MATRIX IDS 2.0")
-        # Make window full screen
-        self.root.attributes('-fullscreen', True)
-        self.root.configure(bg=MATRIX_BG)
-
-        # Configure styles with modern look
-        self.style = ttk.Style()
-        self.style.theme_use('clam')
-        
-        # Configure base styles
-        self.style.configure(".", 
-                           background=MATRIX_BG, 
-                           foreground=MATRIX_GREEN,
-                           font=("Segoe UI", 10))
-        
-        # Configure header style
-        self.style.configure("Header.TLabel", 
-                           font=("Segoe UI", 14, "bold"),
-                           background=MATRIX_BG,
-                           foreground=MATRIX_GREEN,
-                           padding=10)
-        
-        # Configure Treeview with modern look
-        self.style.configure("Treeview", 
-                            background=DARK_GREEN,
-                            foreground=MATRIX_GREEN,
-                            fieldbackground=DARK_GREEN,
-                           borderwidth=0,
-                           rowheight=25)
-        
-        # Configure Treeview headings
-        self.style.configure("Treeview.Heading",
-                           background=DARK_GREEN,
-                           foreground=MATRIX_GREEN,
-                           font=("Segoe UI", 10, "bold"))
-        
-        # Configure Treeview selection
-        self.style.map('Treeview', 
-                      background=[('selected', ACCENT_GREEN)],
-                      foreground=[('selected', MATRIX_BG)])
-        
-        # Configure Button styles
-        self.style.configure("Sidebar.TButton",
-                           background=DARK_GREEN,
-                           foreground=MATRIX_GREEN,
-                           font=("Segoe UI", 10),
-                           padding=10,
-                            borderwidth=0)
-        
-        self.style.map("Sidebar.TButton",
-                      background=[('active', ACCENT_GREEN)],
-                      foreground=[('active', MATRIX_BG)])
-
-        # Top frame for toggle button with modern styling
-        self.top_frame = ttk.Frame(self.root)
-        self.top_frame.pack(fill=tk.X, padx=5, pady=5)
-
-        # Modern toggle button
-        self.toggle_button = ttk.Button(
-            self.top_frame, 
-            text="☰", 
-            style="Sidebar.TButton",
-            command=self.toggle_sidebar,
-            width=3
-        )
-        self.toggle_button.pack(side=tk.LEFT)
-
-        # Main container with fixed layout
-        self.main_container = ttk.Frame(self.root)
-        self.main_container.pack(fill=tk.BOTH, expand=True)
-
-        # Sidebar with modern styling
-        self.sidebar = ttk.Frame(self.main_container, width=200, style="Sidebar.TFrame")
-        self.setup_sidebar(self.sidebar)
-        self.sidebar.pack(side=tk.LEFT, fill=tk.Y)
-
-        # Main content area with padding
-        self.container = ttk.Frame(self.main_container)
-        self.container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-        # Initialize status label
-        self.status_label = ttk.Label(
-            self.top_frame,
-            text="Not logged in",
-            style="Header.TLabel"
-        )
-        self.status_label.pack(side=tk.RIGHT, padx=10)
-
-        # Show default view
-        self.show_view("Dashboard")
-        
-        # Initialize CyberGauge instances if they don't exist
-        if not hasattr(self, 'cpu_gauge'):
-            self.cpu_gauge = CyberGauge(self.container, "CPU LOAD", MATRIX_BG, MATRIX_GREEN, role=self.role)
-        if not hasattr(self, 'mem_gauge'):
-            self.mem_gauge = CyberGauge(self.container, "MEMORY USAGE", MATRIX_BG, MATRIX_GREEN, role=self.role)
 
     def setup_sidebar(self, parent):
         # Sidebar styling with modern look

@@ -17,16 +17,21 @@ from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN
 from login import get_db_connection
 
 class ThreatAlertsView(ttk.Frame):
-    def __init__(self, parent):
+    def __init__(self, parent, role=None, first_name=None):
         super().__init__(parent)
         self.parent = parent
+        self.role = role  # Store the role
+        self.first_name = first_name  # Store the first name
+        print(f"[DEBUG] Role received in ThreatAlertsView: {self.role}")
+        print(f"[DEBUG] First name received in ThreatAlertsView: {self.first_name}")
+        
         self.alerts = []  # Stores all alerts
-        self.packet_counts = defaultdict(int)  # Track packets per IP for DoS/DDoS
-        self.arp_table = {}  # Track IP-MAC mappings for MitM detection
-        self.port_scan_counts = defaultdict(set)  # Track unique ports per IP for port scanning
-        self.blocked_ips = set()  # Track blocked IPs
-        self.safe_ips = set()  # Track safe IPs
-        self.ip_details = {}  # Store detailed information for each IP
+        self.packet_counts = defaultdict(int)
+        self.arp_table = {}
+        self.port_scan_counts = defaultdict(set)
+        self.blocked_ips = set()
+        self.safe_ips = set()
+        self.ip_details = {}
 
         # Load Suricata alerts
         suricata_alerts = self.parse_suricata_alerts("/var/log/suricata/eve.json")
@@ -108,15 +113,35 @@ class ThreatAlertsView(ttk.Frame):
         selected_item = self.alert_tree.selection()
         if selected_item:
             ip = self.alert_tree.item(selected_item, "values")[1]
-            print(f"[BLOCK] Attempting to block IP: {ip}")  # Debug statement
+            print(f"[BLOCK] Attempting to block IP: {ip}")
             self.blocked_ips.add(ip)
             self.alert_tree.item(selected_item, values=(*self.alert_tree.item(selected_item, "values")[:-1], "Blocked"))
-            self.log_blocked_threat(ip, "admin")
+            self.log_blocked_threat(ip)  # Call the updated logging method
             messagebox.showinfo("Block IP", f"IP {ip} has been blocked.")
         else:
             messagebox.showwarning("No Selection", "Please select a threat to block its IP.")
 
-    def log_blocked_threat(self, ip, action_by):
+    def mark_safe(self):
+        """Mark the selected IP as safe."""
+        selected_item = self.alert_tree.selection()
+        if selected_item:
+            ip = self.alert_tree.item(selected_item, "values")[1]
+            print(f"[SAFE] Attempting to mark IP as safe: {ip}")
+            self.safe_ips.add(ip)
+            self.alert_tree.item(selected_item, values=(*self.alert_tree.item(selected_item, "values")[:-1], "Safe"))
+            
+            # Use the stored user information
+            if self.role and self.first_name:
+                user_info = f"{self.first_name} ({self.role})"
+            else:
+                user_info = "Unknown User"
+                
+            self.log_safe_threat(ip, user_info)
+            messagebox.showinfo("Mark as Safe", f"IP {ip} has been marked as safe.")
+        else:
+            messagebox.showwarning("No Selection", "Please select a threat to mark its IP as safe.")
+
+    def log_blocked_threat(self, ip):
         """Log the blocked threat to the database."""
         try:
             conn = get_db_connection()
@@ -128,15 +153,20 @@ class ThreatAlertsView(ttk.Frame):
                 values = self.alert_tree.item(selected_item, "values")
                 threat_type = values[2]
                 severity = values[3]
-                # Get current date and time for the timestamp
                 timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
                 
-                print(f"[DB] Attempting to log blocked threat: {threat_type}, {ip}, {timestamp}, {severity}, {action_by}")
+                # Use the stored user information
+                if self.role and self.first_name:
+                    user_info = f"{self.first_name} ({self.role})"
+                else:
+                    user_info = "Unknown User"
+                
+                print(f"[DB] Attempting to log blocked threat: {threat_type}, {ip}, {timestamp}, {severity}, {user_info}")
                 
                 cur.execute(
                     "INSERT INTO threat_actions (time, action, ip, threat_type, severity, action_by) "
                     "VALUES (%s, %s, %s, %s, %s, %s)",
-                    (timestamp, 'Blocked', ip, threat_type, severity, action_by)
+                    (timestamp, 'Blocked', ip, threat_type, severity, user_info)
                 )
                 
                 conn.commit()
@@ -147,20 +177,7 @@ class ThreatAlertsView(ttk.Frame):
             cur.close()
             conn.close()
 
-    def mark_safe(self):
-        """Mark the selected IP as safe."""
-        selected_item = self.alert_tree.selection()
-        if selected_item:
-            ip = self.alert_tree.item(selected_item, "values")[1]
-            print(f"[SAFE] Attempting to mark IP as safe: {ip}")  # Debug statement
-            self.safe_ips.add(ip)
-            self.alert_tree.item(selected_item, values=(*self.alert_tree.item(selected_item, "values")[:-1], "Safe"))
-            self.log_safe_threat(ip, "admin")
-            messagebox.showinfo("Mark as Safe", f"IP {ip} has been marked as safe.")
-        else:
-            messagebox.showwarning("No Selection", "Please select a threat to mark its IP as safe.")
-
-    def log_safe_threat(self, ip, action_by):
+    def log_safe_threat(self, ip, user_info):
         """Log the safe threat to the database."""
         try:
             conn = get_db_connection()
@@ -172,15 +189,14 @@ class ThreatAlertsView(ttk.Frame):
                 values = self.alert_tree.item(selected_item, "values")
                 threat_type = values[2]
                 severity = values[3]
-                # Get current date and time for the timestamp
                 timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
                 
-                print(f"[DB] Attempting to log safe threat: {threat_type}, {ip}, {timestamp}, {severity}, {action_by}")
+                print(f"[DB] Attempting to log safe threat: {threat_type}, {ip}, {timestamp}, {severity}, {user_info}")
                 
                 cur.execute(
                     "INSERT INTO threat_actions (time, action, ip, threat_type, severity, action_by) "
                     "VALUES (%s, %s, %s, %s, %s, %s)",
-                    (timestamp, 'Marked Safe', ip, threat_type, severity, action_by)
+                    (timestamp, 'Marked Safe', ip, threat_type, severity, user_info)
                 )
                 
                 conn.commit()
@@ -402,9 +418,9 @@ class ThreatAlertsView(ttk.Frame):
 
     def classify_dos_severity(self, packet_count):
         """Classify DoS/DDoS severity based on packet count."""
-        if packet_count < 500:
+        if packet_count < 1000:
             return "Low"
-        elif 500 <= packet_count < 1000:
+        elif 1000 <= packet_count < 2000:
             return "Medium"
         else:
             return "High"
@@ -431,9 +447,9 @@ class ThreatAlertsView(ttk.Frame):
 
     def classify_syn_flood_severity(self, syn_count):
         """Classify SYN flood severity based on SYN packet count."""
-        if syn_count < 500:
+        if syn_count < 1000:
             return "Low"
-        elif 500 <= syn_count < 1000:
+        elif 1000 <= syn_count < 20000:
             return "Medium"
         else:
             return "High"
@@ -781,28 +797,108 @@ class ThreatAlertsView(ttk.Frame):
     def export_data(self):
         """Open a window to select export format and type."""
         export_window = tk.Toplevel(self)
-        export_window.title("Export Data")
-        export_window.geometry("300x150")
+        export_window.title("Export Threat Data")
+        export_window.geometry("400x500")
+        export_window.configure(bg=MATRIX_BG)
+        
+        # Configure styles for the export window
+        style = ttk.Style()
+        style.configure("Export.TLabel", 
+                       background=MATRIX_BG, 
+                       foreground=MATRIX_GREEN,
+                       font=("Consolas", 10))
+        style.configure("Export.TButton",
+                       background=DARK_GREEN,
+                       foreground=MATRIX_GREEN,
+                       font=("Consolas", 10),
+                       borderwidth=0)
+        style.map("Export.TButton",
+                 background=[("active", ACCENT_GREEN)],
+                 foreground=[("active", MATRIX_BG)])
+        style.configure("Export.TCombobox",
+                       background=MATRIX_BG,
+                       foreground=MATRIX_GREEN,
+                       fieldbackground=MATRIX_BG,
+                       selectbackground=ACCENT_GREEN,
+                       selectforeground=MATRIX_BG)
 
-        # Format selection
-        format_label = ttk.Label(export_window, text="Select Export Format:")
-        format_label.pack(pady=5)
+        # Main container frame
+        main_frame = ttk.Frame(export_window, style="Matrix.TFrame", padding="20")
+        main_frame.pack(fill=tk.BOTH, expand=True)
+
+        # Title
+        title_label = ttk.Label(main_frame, 
+                              text="EXPORT THREAT DATA",
+                              font=("Consolas", 16, "bold"),
+                              style="Export.TLabel")
+        title_label.pack(pady=(0, 20))
+
+        # Format selection frame
+        format_frame = ttk.LabelFrame(main_frame, text="EXPORT FORMAT", padding=10, style="Matrix.TLabelframe")
+        format_frame.pack(fill=tk.X, pady=(0, 15))
+        
         format_var = tk.StringVar(value="CSV")
-        format_menu = ttk.Combobox(export_window, textvariable=format_var, values=["CSV", "PDF", "Excel"])
+        format_menu = ttk.Combobox(format_frame, 
+                                 textvariable=format_var,
+                                 values=["CSV", "PDF", "Excel"],
+                                 state="readonly",
+                                 style="Export.TCombobox",
+                                 width=30)
         format_menu.pack(pady=5)
 
-        # Type selection
-        type_label = ttk.Label(export_window, text="Select Threat Type:")
-        type_label.pack(pady=5)
+        # Threat Type selection frame
+        type_frame = ttk.LabelFrame(main_frame, text="THREAT TYPE", padding=10, style="Matrix.TLabelframe")
+        type_frame.pack(fill=tk.X, pady=(0, 15))
+        
         type_var = tk.StringVar(value="High")
-        type_menu = ttk.Combobox(export_window, textvariable=type_var, values=["High", "Low", "Most Reoccurring"])
+        type_menu = ttk.Combobox(type_frame,
+                                textvariable=type_var,
+                                values=["High", "Medium", "Low", "All"],
+                                state="readonly",
+                                style="Export.TCombobox",
+                                width=30)
         type_menu.pack(pady=5)
 
-        # Export button
-        export_btn = ttk.Button(export_window, text="Export", command=lambda: self.perform_export(format_var.get(), type_var.get()))
-        export_btn.pack(pady=10)
+        # Status selection frame
+        status_frame = ttk.LabelFrame(main_frame, text="THREAT STATUS", padding=10, style="Matrix.TLabelframe")
+        status_frame.pack(fill=tk.X, pady=(0, 15))
+        
+        status_var = tk.StringVar(value="All")
+        status_menu = ttk.Combobox(status_frame,
+                                 textvariable=status_var,
+                                 values=["Active", "Resolved", "Blocked", "Safe", "All"],
+                                 state="readonly",
+                                 style="Export.TCombobox",
+                                 width=30)
+        status_menu.pack(pady=5)
 
-    def perform_export(self, format, type):
+        # Button frame
+        button_frame = ttk.Frame(main_frame, style="Matrix.TFrame")
+        button_frame.pack(fill=tk.X, pady=(20, 0))
+
+        # Export button
+        export_btn = ttk.Button(button_frame,
+                              text="EXPORT DATA",
+                              command=lambda: self.perform_export(format_var.get(), type_var.get(), status_var.get()),
+                              style="Export.TButton")
+        export_btn.pack(side=tk.RIGHT, padx=5)
+
+        # Cancel button
+        cancel_btn = ttk.Button(button_frame,
+                              text="CANCEL",
+                              command=export_window.destroy,
+                              style="Export.TButton")
+        cancel_btn.pack(side=tk.RIGHT, padx=5)
+
+        # Center the window on the screen
+        export_window.update_idletasks()
+        width = export_window.winfo_width()
+        height = export_window.winfo_height()
+        x = (export_window.winfo_screenwidth() // 2) - (width // 2)
+        y = (export_window.winfo_screenheight() // 2) - (height // 2)
+        export_window.geometry(f'{width}x{height}+{x}+{y}')
+
+    def perform_export(self, format, type, status):
         """Perform the export based on the selected format and type."""
         if format == "Excel":
             file_types = [("Excel files", "*.xlsx")]
@@ -826,12 +922,9 @@ class ThreatAlertsView(ttk.Frame):
             data = []
             for child in self.alert_tree.get_children():
                 values = self.alert_tree.item(child, "values")
-                if type == "High" and values[3] == "High":
+                # Apply filters
+                if (type == "All" or values[3] == type) and (status == "All" or values[4] == status):
                     data.append(values)
-                elif type == "Low" and values[3] == "Low":
-                    data.append(values)
-                elif type == "Most Reoccurring":
-                    pass
 
             if format == "CSV":
                 self.export_to_csv(file_path, data)
@@ -862,7 +955,7 @@ class ThreatAlertsView(ttk.Frame):
 
         for row in data:
             for item in row:
-                pdf.cell(40, 10, item, border=1)
+                pdf.cell(40, 10, str(item), border=1)
             pdf.ln()
 
         pdf.output(file_path)

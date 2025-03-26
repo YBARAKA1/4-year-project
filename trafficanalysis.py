@@ -1376,20 +1376,20 @@ class TrafficAnalysisView(ttk.Frame):
 
             
     def get_protocol_description(self, protocol_name):
-        """Return a description of the protocol."""
-        descriptions = {
-            "ICMP": "Internet Control Message Protocol (Layer 3 - Network Layer)",
-            "IGMP": "Internet Group Management Protocol (Layer 3 - Network Layer)",
-            "TCP": "Transmission Control Protocol (Layer 4 - Transport Layer)",
-            "UDP": "User Datagram Protocol (Layer 4 - Transport Layer)",
-            "IPv6": "Internet Protocol Version 6 (Layer 3 - Network Layer)",
-            "ESP": "Encapsulating Security Payload (Layer 3 - Network Layer)",
-            "AH": "Authentication Header (Layer 3 - Network Layer)",
-            "OSPF": "Open Shortest Path First (Layer 3 - Network Layer)",
-            "SCTP": "Stream Control Transmission Protocol (Layer 4 - Transport Layer)",
-            "Reserved": "Reserved Protocol",
-        }
-        return descriptions.get(protocol_name, f"Unknown Protocol ({protocol_name})")
+            """Return a description of the protocol."""
+            descriptions = {
+                "ICMP": "Internet Control Message Protocol (Layer 3 - Network Layer)",
+                "IGMP": "Internet Group Management Protocol (Layer 3 - Network Layer)",
+                "TCP": "Transmission Control Protocol (Layer 4 - Transport Layer)",
+                "UDP": "User Datagram Protocol (Layer 4 - Transport Layer)",
+                "IPv6": "Internet Protocol Version 6 (Layer 3 - Network Layer)",
+                "ESP": "Encapsulating Security Payload (Layer 3 - Network Layer)",
+                "AH": "Authentication Header (Layer 3 - Network Layer)",
+                "OSPF": "Open Shortest Path First (Layer 3 - Network Layer)",
+                "SCTP": "Stream Control Transmission Protocol (Layer 4 - Transport Layer)",
+                "Reserved": "Reserved Protocol",
+            }
+            return descriptions.get(protocol_name, f"Unknown Protocol ({protocol_name})")
 
     def get_protocol_interpretation(self, protocol_name, src_ip, dst_ip,):
         """Return protocol-specific details and interpretation."""
@@ -1423,7 +1423,6 @@ class TrafficAnalysisView(ttk.Frame):
         }
         
         return interpretations.get(protocol_name, f"The captured packet represents a communication from {src_ip} to {dst_ip} using an unknown protocol. Further analysis is required to determine its intent.")
-
     
     def update_ui(self):
         """Update the UI with the latest packet data."""
