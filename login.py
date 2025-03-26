@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 import os
 import threading  # For background email sending
 from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG
+import tkcalendar  # Add tkcalendar import
 
 # Load environment variables
 load_dotenv()
@@ -119,9 +120,24 @@ class SignUpWindow(tk.Toplevel):
         # Date of Birth Frame
         dob_frame = tk.Frame(form_frame, bg=MATRIX_BG)
         dob_frame.pack(fill="x", pady=5)
-        tk.Label(dob_frame, text="Date of Birth (YYYY-MM-DD):", **label_style).pack(anchor="w")
-        self.dob_entry = tk.Entry(dob_frame, **entry_style)
-        self.dob_entry.pack(fill="x", pady=(5, 0))
+        tk.Label(dob_frame, text="Date of Birth:", **label_style).pack(anchor="w")
+        
+        # Create a frame for the calendar and entry
+        calendar_frame = tk.Frame(dob_frame, bg=MATRIX_BG)
+        calendar_frame.pack(fill="x", pady=(5, 0))
+        
+        # Create the entry field
+        self.dob_entry = tk.Entry(calendar_frame, **entry_style)
+        self.dob_entry.pack(side="left", fill="x", expand=True)
+        
+        # Create calendar button
+        self.calendar_button = tk.Button(calendar_frame, text="📅", command=self.show_calendar, 
+                                       bg=BUTTON_BG, fg=BUTTON_FG, font=("Consolas", 12))
+        self.calendar_button.pack(side="right", padx=(5, 0))
+        
+        # Create calendar popup window (initially hidden)
+        self.calendar_window = None
+        self.calendar_widget = None
 
         # Purpose Frame
         purpose_frame = tk.Frame(form_frame, bg=MATRIX_BG)
@@ -155,83 +171,198 @@ class SignUpWindow(tk.Toplevel):
 
     def highlight_error(self, entry_widget):
         """Highlight the entry widget with a red line to indicate an error."""
-        entry_widget.config(highlightbackground="red", highlightcolor="red", highlightthickness=1)
-        entry_widget.focus_set()  # Set focus to the incorrect field
+        try:
+            if entry_widget and entry_widget.winfo_exists():
+                entry_widget.config(highlightbackground="red", highlightcolor="red", highlightthickness=1)
+                entry_widget.focus_set()  # Set focus to the incorrect field
+        except tk.TclError:
+            # Widget was destroyed, ignore the error
+            pass
 
     def reset_highlight(self, entry_widget):
         """Reset the highlight of the entry widget."""
         entry_widget.config(highlightbackground=DARK_GREEN, highlightcolor=DARK_GREEN, highlightthickness=1)
 
+    def show_calendar(self):
+        """Show the calendar popup window."""
+        # If calendar window already exists, just show it
+        if self.calendar_window and self.calendar_window.winfo_exists():
+            self.calendar_window.deiconify()
+            self.calendar_window.lift()
+            return
+
+        # Create a new calendar window
+        self.calendar_window = tk.Toplevel(self)
+        self.calendar_window.title("Select Date")
+        self.calendar_window.configure(bg=MATRIX_BG)
+        
+        # Create calendar widget
+        self.calendar_widget = tkcalendar.Calendar(
+            self.calendar_window,
+            selectmode='day',
+            year=2000,  # Default year
+            month=1,    # Default month
+            day=1,      # Default day
+            background=MATRIX_BG,
+            foreground=MATRIX_GREEN,
+            selectbackground=ACCENT_GREEN,
+            selectforeground=MATRIX_BG,
+            normalbackground=MATRIX_BG,
+            normalforeground=MATRIX_GREEN,
+            weekendbackground=MATRIX_BG,
+            weekendforeground=MATRIX_GREEN,
+            othermonthbackground=MATRIX_BG,
+            othermonthforeground=DARK_GREEN,
+            othermonthwebackground=MATRIX_BG,
+            othermonthweforeground=DARK_GREEN,
+            bordercolor=MATRIX_GREEN,
+            font=("Consolas", 10)
+        )
+        self.calendar_widget.pack(padx=10, pady=10)
+        
+        # Add select button
+        select_button = tk.Button(
+            self.calendar_window,
+            text="Select",
+            command=self.select_date,
+            bg=BUTTON_BG,
+            fg=BUTTON_FG,
+            font=("Consolas", 12, "bold"),
+            relief="flat",
+            width=10
+        )
+        select_button.pack(pady=10)
+        
+        # Center the calendar window
+        self.calendar_window.update_idletasks()
+        width = self.calendar_window.winfo_width()
+        height = self.calendar_window.winfo_height()
+        x = (self.calendar_window.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.calendar_window.winfo_screenheight() // 2) - (height // 2)
+        self.calendar_window.geometry(f'{width}x{height}+{x}+{y}')
+        
+        # Make window modal
+        self.calendar_window.transient(self)
+        self.calendar_window.grab_set()
+        
+        # Add hover effect to select button
+        select_button.bind("<Enter>", lambda e: select_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+        select_button.bind("<Leave>", lambda e: select_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
+        
+        # Add window close handler
+        self.calendar_window.protocol("WM_DELETE_WINDOW", self.close_calendar)
+        
+        # Bind focus out event only to the main window, not the calendar
+        self.bind("<FocusOut>", self.handle_calendar_focus_out)
+
+    def close_calendar(self):
+        """Close the calendar window and clean up."""
+        if self.calendar_window and self.calendar_window.winfo_exists():
+            self.calendar_window.grab_release()
+            self.calendar_window.destroy()
+            self.calendar_window = None
+            self.calendar_widget = None
+
+    def handle_calendar_focus_out(self, event):
+        """Handle focus out event for calendar window."""
+        if self.calendar_window and self.calendar_window.winfo_exists():
+            # Only close if focus is lost to something outside both windows
+            if event.widget == self and not self.calendar_window.focus_get():
+                self.close_calendar()
+
+    def select_date(self):
+        """Handle date selection from calendar."""
+        if self.calendar_widget:
+            selected_date = self.calendar_widget.get_date()  # Returns "MM/DD/YYYY"
+            # Convert the date string to the required format YYYY-MM-DD
+            month, day, year = selected_date.split('/')
+            # Pad month and day with leading zeros if needed
+            month = month.zfill(2)
+            day = day.zfill(2)
+            # Ensure year is 4 digits
+            if len(year) == 2:
+                year = "20" + year
+            formatted_date = f"{year}-{month}-{day}"
+            self.dob_entry.delete(0, tk.END)
+            self.dob_entry.insert(0, formatted_date)
+            self.close_calendar()  # Use close_calendar instead of withdraw
+
     def signup(self):
-        first_name = self.first_name_entry.get()
-        last_name = self.last_name_entry.get()
-        email = self.email_entry.get()
-        dob = self.dob_entry.get()
-        purpose = self.purpose_entry.get()
-        print(f"[DEBUG] Attempting signup for {email}")
-
-        # Validate first name and last name
-        if not self.validate_name(first_name):
-            messagebox.showerror("Error", "First name should contain only letters.")
-            self.highlight_error(self.first_name_entry)
-            return
-
-        if not self.validate_name(last_name):
-            messagebox.showerror("Error", "Last name should contain only letters.")
-            self.highlight_error(self.last_name_entry)
-            return
-
-        # Validate all fields are filled
-        if not all([first_name, last_name, email, dob, purpose]):
-            messagebox.showerror("Error", "Please fill in all fields.")
-            return  # Exit the method without closing the window
-
         try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            print("[DEBUG] Starting database insert")
+            first_name = self.first_name_entry.get()
+            last_name = self.last_name_entry.get()
+            email = self.email_entry.get()
+            dob = self.dob_entry.get()
+            purpose = self.purpose_entry.get()
+            print(f"[DEBUG] Attempting signup for {email}")
 
-            # Generate initial token
-            token = generate_token()
-            print(f"[DEBUG] Generated signup token: {token}")
+            # Validate first name and last name
+            if not self.validate_name(first_name):
+                messagebox.showerror("Error", "Please fill in your first name correctly.")
+                if self.first_name_entry.winfo_exists():
+                    self.highlight_error(self.first_name_entry)
+                return
 
-            # Insert into the pending table
-            cur.execute(
-                "INSERT INTO pending (first_name, last_name, email, dob, purpose, token) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
-                (first_name, last_name, email, dob, purpose, token)
-            )
-            conn.commit()
-            print("[DEBUG] User record created in pending table")
+            if not self.validate_name(last_name):
+                messagebox.showerror("Error", "Please fill in your last name correctly.")
+                if self.last_name_entry.winfo_exists():
+                    self.highlight_error(self.last_name_entry)
+                return
 
-            # Debug: Print the role (if applicable)
-            cur.execute("SELECT role FROM users WHERE email = %s", (email,))
-            result = cur.fetchone()
-            if result:
-                print(f"[DEBUG] Role for {email}: {result[0]}")
+            # Validate all fields are filled
+            if not all([first_name, last_name, email, dob, purpose]):
+                messagebox.showerror("Error", "Please fill in all fields.")
+                return  # Exit the method without closing the window
 
-            # Send notifications
-            admin_msg = f"New user: {first_name} {last_name}\nEmail: {email}\nToken: {token}"
-            send_email_async("jeff@integral.co.ke", "New Signup Request", admin_msg)
-            send_email_async(email, "Your Account Pending", "Your account is awaiting approval")
+            try:
+                conn = get_db_connection()
+                cur = conn.cursor()
+                print("[DEBUG] Starting database insert")
 
-            print("[DEBUG] Signup process completed")
-            messagebox.showinfo("Success", "Sign-up successful! Awaiting admin approval.")
-            self.destroy()  # Close the signup window only after successful signup
+                # Generate initial token
+                token = generate_token()
+                print(f"[DEBUG] Generated signup token: {token}")
 
-            # Restore the LoginWindow
-            self.parent.deiconify()
+                # Insert into the pending table
+                cur.execute(
+                    "INSERT INTO pending (first_name, last_name, email, dob, purpose, token) "
+                    "VALUES (%s, %s, %s, %s, %s, %s)",
+                    (first_name, last_name, email, dob, purpose, token)
+                )
+                conn.commit()
+                print("[DEBUG] User record created in pending table")
 
-        except psycopg2.IntegrityError:
-            print("[ERROR] Duplicate email attempt")
-            messagebox.showerror("Error", "Email already exists")
-        except Exception as e:
-            print(f"[ERROR] Signup failed: {str(e)}")
-            messagebox.showerror("Error", "Signup failed")
-        finally:
-            cur.close()
-            conn.close()
-            print("[DEBUG] Database connection closed")
+                # Debug: Print the role (if applicable)
+                cur.execute("SELECT role FROM users WHERE email = %s", (email,))
+                result = cur.fetchone()
+                if result:
+                    print(f"[DEBUG] Role for {email}: {result[0]}")
+
+                # Send notifications
+                admin_msg = f"New user: {first_name} {last_name}\nEmail: {email}\nToken: {token}"
+                send_email_async("jeff@integral.co.ke", "New Signup Request", admin_msg)
+                send_email_async(email, "Your Account Pending", "Your account is awaiting approval")
+
+                print("[DEBUG] Signup process completed")
+                messagebox.showinfo("Success", "Sign-up successful! Awaiting admin approval.")
+                self.destroy()  # Close the signup window only after successful signup
+
+                # Restore the LoginWindow
+                self.parent.deiconify()
+
+            except psycopg2.IntegrityError:
+                print("[ERROR] Duplicate email attempt")
+                messagebox.showerror("Error", "Email already exists")
+            except Exception as e:
+                print(f"[ERROR] Signup failed: {str(e)}")
+                messagebox.showerror("Error", "Signup failed")
+            finally:
+                cur.close()
+                conn.close()
+                print("[DEBUG] Database connection closed")
+        except tk.TclError:
+            # Window was destroyed, ignore the error
+            pass
 
     def go_back(self):
         """Close the signup window and reopen the login window."""

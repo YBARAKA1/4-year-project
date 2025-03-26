@@ -48,6 +48,10 @@ class TrafficAnalysisView(ttk.Frame):
         }
         print("Packet data initialized.")
 
+        # Add pause states
+        self.geolocation_paused = False
+        self.top_talkers_paused = False
+
         # Load GeoIP database
         self.geoip_reader = geoip2.database.Reader("GeoLite2-City.mmdb")
         print("GeoIP database loaded.")
@@ -607,17 +611,19 @@ class TrafficAnalysisView(ttk.Frame):
         category_dropdown.pack(side=tk.LEFT, padx=5)
         category_dropdown.bind("<<ComboboxSelected>>", self.update_top_talkers)
         
+        # Add pause/resume button
+        self.top_talkers_pause_button = ttk.Button(
+            controls_frame,
+            text="Pause",
+            command=self.toggle_top_talkers_pause
+        )
+        self.top_talkers_pause_button.pack(side=tk.LEFT, padx=5)
+        
         # Export buttons
         ttk.Button(controls_frame, text="Export PDF", command=lambda: self.export_top_talkers("pdf")).pack(side=tk.LEFT, padx=5)
         ttk.Button(controls_frame, text="Export CSV", command=lambda: self.export_top_talkers("csv")).pack(side=tk.LEFT, padx=5)
         ttk.Button(controls_frame, text="Export Excel", command=lambda: self.export_top_talkers("excel")).pack(side=tk.LEFT, padx=5)
         ttk.Button(controls_frame, text="Print", command=self.print_top_talkers).pack(side=tk.LEFT, padx=5)
-        # Example data for top talkers
-        self.top_talkers_data = [
-            ("192.168.1.1", "192.168.1.2", 1000),
-            ("192.168.1.3", "192.168.1.4", 800),
-            ("192.168.1.5", "192.168.1.6", 600)
-        ]
 
         # Treeview for top talkers
         columns = ("Source IP", "Destination IP", "Traffic (MB)")
@@ -627,12 +633,11 @@ class TrafficAnalysisView(ttk.Frame):
             self.top_talkers_tree.column(col, width=150)
         self.top_talkers_tree.pack(fill=tk.BOTH, expand=True)
 
-        # Populate treeview
-        for row in self.top_talkers_data:
-            self.top_talkers_tree.insert("", "end", values=row)
-            
     def update_top_talkers(self):
         """Update the Top Talkers tab with the latest data."""
+        if self.top_talkers_paused:
+            return
+            
         try:
             # Clear the existing data in the treeview
             for row in self.top_talkers_tree.get_children():
@@ -680,18 +685,19 @@ class TrafficAnalysisView(ttk.Frame):
         category_dropdown.pack(side=tk.LEFT, padx=5)
         category_dropdown.bind("<<ComboboxSelected>>", self.update_geolocation_map)
         
+        # Add pause/resume button
+        self.geo_pause_button = ttk.Button(
+            controls_frame,
+            text="Pause",
+            command=self.toggle_geolocation_pause
+        )
+        self.geo_pause_button.pack(side=tk.LEFT, padx=5)
+        
         # Export buttons
         ttk.Button(controls_frame, text="Export PDF", command=lambda: self.export_geolocation("pdf")).pack(side=tk.LEFT, padx=5)
         ttk.Button(controls_frame, text="Export CSV", command=lambda: self.export_geolocation("csv")).pack(side=tk.LEFT, padx=5)
         ttk.Button(controls_frame, text="Export Excel", command=lambda: self.export_geolocation("excel")).pack(side=tk.LEFT, padx=5)
         ttk.Button(controls_frame, text="Print", command=self.print_geolocation).pack(side=tk.LEFT, padx=5)
-
-        # Example data for geolocation
-        self.geolocation_data = [
-            ("192.168.1.1", "New York, USA"),
-            ("192.168.1.2", "London, UK"),
-            ("192.168.1.3", "Tokyo, Japan")
-        ]
 
         # Treeview for geolocation
         columns = ("IP Address", "Location")
@@ -701,10 +707,6 @@ class TrafficAnalysisView(ttk.Frame):
             self.geolocation_tree.column(col, width=150)
         self.geolocation_tree.pack(fill=tk.BOTH, expand=True)
 
-        # Populate treeview
-        for row in self.geolocation_data:
-            self.geolocation_tree.insert("", "end", values=row)
-            
     def update_geolocation(self, ip):
         """Map an IP address to a location using GeoIP."""
         try:
@@ -713,9 +715,19 @@ class TrafficAnalysisView(ttk.Frame):
             self.packet_data["geolocation"][ip] = location
         except Exception as e:
             print(f"GeoIP lookup failed for {ip}: {e}")
-    
+
+    def toggle_geolocation_pause(self):
+        """Toggle pause/resume state for geolocation updates."""
+        self.geolocation_paused = not self.geolocation_paused
+        self.geo_pause_button.config(text="Resume" if self.geolocation_paused else "Pause")
+        if not self.geolocation_paused:
+            self.update_geolocation_map()
+
     def update_geolocation_map(self):
         """Update the Geolocation tab with the latest data."""
+        if self.geolocation_paused:
+            return
+            
         try:
             # Clear the existing data in the treeview
             for row in self.geolocation_tree.get_children():
@@ -725,9 +737,15 @@ class TrafficAnalysisView(ttk.Frame):
                     # Item no longer exists, skip it
                     continue
 
-            # Add the geolocation data to the treeview
-            for ip, location in self.packet_data["geolocation"].items():
+            # Get filtered data based on selected category
+            filtered_data = self.get_filtered_geolocation()
+
+            # Add the filtered geolocation data to the treeview
+            for item in filtered_data:
                 try:
+                    # Extract IP and location from the filtered data
+                    ip = item[0]
+                    location = item[1]
                     self.geolocation_tree.insert("", "end", values=(ip, location))
                 except tk.TclError:
                     # Treeview was destroyed, stop updating
@@ -1432,9 +1450,15 @@ class TrafficAnalysisView(ttk.Frame):
         self.update_top_talkers()
         self.update_geolocation_map()
         
-        
     def destroy(self):
         """Clean up resources when the view is destroyed."""
         if hasattr(self, 'db_connection') and self.db_connection:
             self.db_connection.close()
         super().destroy()
+
+    def toggle_top_talkers_pause(self):
+        """Toggle pause/resume state for top talkers updates."""
+        self.top_talkers_paused = not self.top_talkers_paused
+        self.top_talkers_pause_button.config(text="Resume" if self.top_talkers_paused else "Pause")
+        if not self.top_talkers_paused:
+            self.update_top_talkers()

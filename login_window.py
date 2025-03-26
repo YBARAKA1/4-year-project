@@ -264,5 +264,8 @@ class LoginWindow(tk.Toplevel):
         self.destroy()
 
     def open_signup(self):
-        self.withdraw()
-        SignUpWindow(self)
+        """Open the signup window and properly display it."""
+        self.withdraw()  # Hide the login window
+        signup_window = SignUpWindow(self)
+        signup_window.lift()  # Bring the window to the front
+        signup_window.focus_force()  # Force focus on the window

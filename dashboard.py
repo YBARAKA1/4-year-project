@@ -365,9 +365,17 @@ class IDSDashboard:
         
     def start_closing_animation(self):
         """Start the closing animation sequence."""
-        # Hide all current widgets
+        # Safely hide all current widgets
         for widget in self.root.winfo_children():
-            widget.pack_forget()
+            try:
+                if hasattr(widget, 'pack_forget'):
+                    widget.pack_forget()
+                elif hasattr(widget, 'grid_forget'):
+                    widget.grid_forget()
+                elif hasattr(widget, 'place_forget'):
+                    widget.place_forget()
+            except Exception:
+                continue
             
         # Create canvas for closing animation
         self.close_canvas = tk.Canvas(self.root, bg="black", highlightthickness=0)

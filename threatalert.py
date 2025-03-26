@@ -32,6 +32,8 @@ class ThreatAlertsView(ttk.Frame):
         self.blocked_ips = set()
         self.safe_ips = set()
         self.ip_details = {}
+        self.is_detection_paused = False  # Add flag for pause state
+        self.sniffing_thread = None  # Store the sniffing thread
 
         # Load Suricata alerts
         suricata_alerts = self.parse_suricata_alerts("/var/log/suricata/eve.json")
@@ -278,6 +280,60 @@ class ThreatAlertsView(ttk.Frame):
         )
         self.status_label.pack(side=tk.LEFT)
 
+        # Add Pause/Resume button
+        self.pause_button = ttk.Button(
+            status_frame,
+            text="PAUSE DETECTION",
+            command=self.toggle_detection,
+            style="Matrix.TButton"
+        )
+        self.pause_button.pack(side=tk.RIGHT, padx=5)
+
+        # Add Filter Frame
+        filter_frame = ttk.LabelFrame(self, text="FILTERS", padding=10, style="Matrix.TLabelframe")
+        filter_frame.pack(fill=tk.X, padx=5, pady=(0, 10))
+
+        # Create filter controls
+        filter_controls_frame = ttk.Frame(filter_frame, style="Matrix.TFrame")
+        filter_controls_frame.pack(fill=tk.X, pady=5)
+
+        # Attack Type Filter
+        attack_type_frame = ttk.Frame(filter_controls_frame, style="Matrix.TFrame")
+        attack_type_frame.pack(side=tk.LEFT, padx=5)
+        ttk.Label(attack_type_frame, text="ATTACK TYPE:", style="Matrix.TLabel").pack(side=tk.LEFT)
+        
+        self.attack_type_var = tk.StringVar(value="All")
+        attack_type_menu = ttk.Combobox(attack_type_frame,
+                                      textvariable=self.attack_type_var,
+                                      values=["All", "DoS/DDoS Attack", "SYN Flood Attack", "UDP Flood Attack", 
+                                             "ICMP Flood Attack", "HTTP Flood Attack", "Port Scanning Detected", 
+                                             "ARP Spoofing Detected (MitM)"],
+                                      state="readonly",
+                                      width=20)
+        attack_type_menu.pack(side=tk.LEFT, padx=5)
+        attack_type_menu.bind('<<ComboboxSelected>>', self.apply_filters)
+
+        # Severity Filter
+        severity_frame = ttk.Frame(filter_controls_frame, style="Matrix.TFrame")
+        severity_frame.pack(side=tk.LEFT, padx=5)
+        ttk.Label(severity_frame, text="SEVERITY:", style="Matrix.TLabel").pack(side=tk.LEFT)
+        
+        self.severity_var = tk.StringVar(value="All")
+        severity_menu = ttk.Combobox(severity_frame,
+                                   textvariable=self.severity_var,
+                                   values=["All", "Low", "Medium", "High"],
+                                   state="readonly",
+                                   width=15)
+        severity_menu.pack(side=tk.LEFT, padx=5)
+        severity_menu.bind('<<ComboboxSelected>>', self.apply_filters)
+
+        # Clear Filters Button
+        clear_btn = ttk.Button(filter_controls_frame,
+                             text="CLEAR FILTERS",
+                             command=self.clear_filters,
+                             style="Matrix.TButton")
+        clear_btn.pack(side=tk.RIGHT, padx=5)
+
         # Button Frame with Matrix styling
         button_frame = ttk.LabelFrame(self, text="ACTIONS", padding=10, style="Matrix.TLabelframe")
         button_frame.pack(fill=tk.X, padx=5, pady=(0, 10))
@@ -404,17 +460,16 @@ class ThreatAlertsView(ttk.Frame):
         # Classify severity based on packet count
         severity = self.classify_dos_severity(self.packet_counts[ip])
 
-        if severity != "Low":  # Only alert for medium or high severity
-            alert = (
-                time.strftime("%H:%M:%S"),
-                ip,
-                f"DoS/DDoS Attack",
-                severity,
-                "Active"
-            )
-            self.alerts.append(alert)
-            self.add_alert(alert)
-            self.packet_counts[ip] = 0  # Reset count after detection
+        alert = (
+            time.strftime("%H:%M:%S"),
+            ip,
+            f"DoS/DDoS Attack",
+            severity,
+            "Active"
+        )
+        self.alerts.append(alert)
+        self.add_alert(alert)
+        self.packet_counts[ip] = 0  # Reset count after detection
 
     def classify_dos_severity(self, packet_count):
         """Classify DoS/DDoS severity based on packet count."""
@@ -433,17 +488,16 @@ class ThreatAlertsView(ttk.Frame):
         self.syn_counts[ip] += 1
         severity = self.classify_syn_flood_severity(self.syn_counts[ip])
 
-        if severity != "Low":
-            alert = (
-                time.strftime("%H:%M:%S"),
-                ip,
-                f"SYN Flood Attack",
-                severity,
-                "Active"
-            )
-            self.alerts.append(alert)
-            self.add_alert(alert)
-            self.syn_counts[ip] = 0  # Reset count after detection
+        alert = (
+            time.strftime("%H:%M:%S"),
+            ip,
+            f"SYN Flood Attack",
+            severity,
+            "Active"
+        )
+        self.alerts.append(alert)
+        self.add_alert(alert)
+        self.syn_counts[ip] = 0  # Reset count after detection
 
     def classify_syn_flood_severity(self, syn_count):
         """Classify SYN flood severity based on SYN packet count."""
@@ -462,17 +516,16 @@ class ThreatAlertsView(ttk.Frame):
         self.udp_counts[ip] += 1
         severity = self.classify_udp_flood_severity(self.udp_counts[ip])
 
-        if severity != "Low":
-            alert = (
-                time.strftime("%H:%M:%S"),
-                ip,
-                f"UDP Flood Attack",
-                severity,
-                "Active"
-            )
-            self.alerts.append(alert)
-            self.add_alert(alert)
-            self.udp_counts[ip] = 0  # Reset count after detection
+        alert = (
+            time.strftime("%H:%M:%S"),
+            ip,
+            f"UDP Flood Attack",
+            severity,
+            "Active"
+        )
+        self.alerts.append(alert)
+        self.add_alert(alert)
+        self.udp_counts[ip] = 0  # Reset count after detection
 
     def classify_udp_flood_severity(self, udp_count):
         """Classify UDP flood severity based on UDP packet count."""
@@ -491,17 +544,16 @@ class ThreatAlertsView(ttk.Frame):
         self.icmp_counts[ip] += 1
         severity = self.classify_icmp_flood_severity(self.icmp_counts[ip])
 
-        if severity != "Low":
-            alert = (
-                time.strftime("%H:%M:%S"),
-                ip,
-                f"ICMP Flood Attack",
-                severity,
-                "Active"
-            )
-            self.alerts.append(alert)
-            self.add_alert(alert)
-            self.icmp_counts[ip] = 0  # Reset count after detection
+        alert = (
+            time.strftime("%H:%M:%S"),
+            ip,
+            f"ICMP Flood Attack",
+            severity,
+            "Active"
+        )
+        self.alerts.append(alert)
+        self.add_alert(alert)
+        self.icmp_counts[ip] = 0  # Reset count after detection
 
     def classify_icmp_flood_severity(self, icmp_count):
         """Classify ICMP flood severity based on ICMP packet count."""
@@ -520,17 +572,16 @@ class ThreatAlertsView(ttk.Frame):
         self.http_counts[ip] += 1
         severity = self.classify_http_flood_severity(self.http_counts[ip])
 
-        if severity != "Low":
-            alert = (
-                time.strftime("%H:%M:%S"),
-                ip,
-                f"HTTP Flood Attack",
-                severity,
-                "Active"
-            )
-            self.alerts.append(alert)
-            self.add_alert(alert)
-            self.http_counts[ip] = 0  # Reset count after detection
+        alert = (
+            time.strftime("%H:%M:%S"),
+            ip,
+            f"HTTP Flood Attack",
+            severity,
+            "Active"
+        )
+        self.alerts.append(alert)
+        self.add_alert(alert)
+        self.http_counts[ip] = 0  # Reset count after detection
 
     def classify_http_flood_severity(self, http_count):
         """Classify HTTP flood severity based on HTTP request count."""
@@ -579,6 +630,9 @@ class ThreatAlertsView(ttk.Frame):
 
     def packet_callback(self, packet):
         """Callback function for packet sniffing."""
+        if self.is_detection_paused:
+            return  # Skip packet processing if detection is paused
+
         if IP in packet:
             ip_src = packet[IP].src
 
@@ -621,19 +675,60 @@ class ThreatAlertsView(ttk.Frame):
         self.port_scan_counts[ip] = set()
 
     def add_alert(self, alert):
-        """Add a new alert to the treeview."""
-        self.alert_tree.insert("", "end", values=alert)
-        # Keep only the last 100 alerts
-        if len(self.alert_tree.get_children()) > 100:
-            self.alert_tree.delete(self.alert_tree.get_children()[0])
+        """Add a new alert to the treeview if the IP hasn't been marked safe or blocked."""
+        try:
+            # Extract IP from alert tuple
+            ip = alert[1]
+            
+            # Check if IP is already in memory
+            if ip in self.blocked_ips or ip in self.safe_ips:
+                print(f"[DEBUG] Skipping alert for blocked/safe IP: {ip}")
+                return
+                
+            # Check database for IP status
+            conn = get_db_connection()
+            cur = conn.cursor()
+            
+            # Check both threat_actions and safe_ips tables
+            cur.execute("""
+                SELECT action FROM threat_actions 
+                WHERE ip = %s AND (action = 'Blocked' OR action = 'Marked Safe')
+                ORDER BY time DESC LIMIT 1
+            """, (ip,))
+            
+            result = cur.fetchone()
+            
+            if result:
+                action = result[0]
+                if action == 'Blocked':
+                    self.blocked_ips.add(ip)
+                    print(f"[DEBUG] IP {ip} is blocked in database")
+                elif action == 'Marked Safe':
+                    self.safe_ips.add(ip)
+                    print(f"[DEBUG] IP {ip} is marked safe in database")
+                return  # Don't add the alert if IP is blocked or safe
+            
+            # Add alert to the alerts list
+            print(f"[DEBUG] Adding new alert to memory: {alert}")
+            self.alerts.append(alert)
+            
+            # Apply current filters
+            self.apply_filters()
+                
+        except Exception as e:
+            print(f"[ERROR] Failed to check IP status in database: {e}")
+        finally:
+            cur.close()
+            conn.close()
 
     def start_real_time_detection(self):
         """Start sniffing network traffic for real-time threat detection."""
         def start_sniffing():
-            sniff(prn=self.packet_callback, store=0)
+            self.sniffing_thread = sniff(prn=self.packet_callback, store=0)
 
         # Start sniffing in a separate thread
-        threading.Thread(target=start_sniffing, daemon=True).start()
+        self.sniffing_thread = threading.Thread(target=start_sniffing, daemon=True)
+        self.sniffing_thread.start()
 
     def check_ip_reputation(self, ip):
         """Check the reputation of an IP using VirusTotal."""
@@ -664,35 +759,93 @@ class ThreatAlertsView(ttk.Frame):
 
     def get_ip_details(self, ip):
         """Fetch detailed information about the selected IP."""
+        # Get geolocation data
+        geo_data = self.get_geolocation(ip)
+        
+        # Get threat analysis data
+        threat_data = self.get_threat_analysis(ip)
+        
         details = {
             "General Information": {
                 "IP Address": ip,
                 "Hostname": self.resolve_hostname(ip),
-                "Location": self.get_geolocation(ip),
-                "MAC Address": self.arp_table.get(ip, "Unknown")
+                "City": geo_data.get('city', 'Unknown'),
+                "Region": geo_data.get('region', 'Unknown'),
+                "Country": geo_data.get('country', 'Unknown'),
+                "Location": geo_data.get('loc', 'Unknown'),
+                "Organization": geo_data.get('org', 'Unknown'),
+                "Postal Code": geo_data.get('postal', 'Unknown'),
+                "Timezone": geo_data.get('timezone', 'Unknown')
             },
-            "Connection Details": {
-                "First Seen": self.get_first_seen(ip),
-                "Last Seen": time.strftime("%H:%M:%S"),
-                "Connection Type": self.get_connection_type(ip),
-                "Associated Ports": self.get_associated_ports(ip)
-            },
-            "Threat Analysis": {
-                "Threat Level": "High",
-                "Malicious Activity Detected": "DoS/DDoS, Port Scanning",
-                "Blacklist Status": self.check_blacklist(ip)
-            },
-            "Traffic Statistics": {
-                "Total Packets Sent/Received": self.packet_counts.get(ip, 0),
-                "Total Data Transferred": "10 MB"
-            },
-            "Incident Reports": {
-                "Alerts Generated": self.get_alerts_for_ip(ip),
-                "Event Timestamps": [alert[0] for alert in self.alerts if alert[1] == ip],
-                "Captured Packets": "Raw Packet Data"
-            }
+            "Threat Analysis": threat_data
         }
         return details
+
+    def get_geolocation(self, ip):
+        """Fetch geolocation data for the given IP using ipinfo.io API."""
+        if ip.startswith(("10.", "172.", "192.168.", "239.")):
+            return {
+                'city': 'Private Network',
+                'region': 'Private Network',
+                'country': 'Private Network',
+                'loc': 'N/A',
+                'org': 'Private Network',
+                'postal': 'N/A',
+                'timezone': 'N/A'
+            }
+
+        try:
+            api_token = "c146aa543f265e"
+            response = requests.get(f"https://ipinfo.io/{ip}?token={api_token}")
+            response.raise_for_status()
+            return response.json()
+        except Exception as e:
+            print(f"Error fetching geolocation data: {e}")
+            return {
+                'city': 'Unknown',
+                'region': 'Unknown',
+                'country': 'Unknown',
+                'loc': 'Unknown',
+                'org': 'Unknown',
+                'postal': 'Unknown',
+                'timezone': 'Unknown'
+            }
+
+    def get_threat_analysis(self, ip):
+        """Get accurate threat analysis data for the given IP."""
+        threat_data = {
+            "Threat Level": "Unknown",
+            "Malicious Activity": [],
+            "Blacklist Status": self.check_blacklist(ip),
+            "VirusTotal Reputation": "Unknown"
+        }
+
+        # Get threat level based on alerts
+        alerts_for_ip = [alert for alert in self.alerts if alert[1] == ip]
+        if alerts_for_ip:
+            # Determine threat level based on severity of alerts
+            severities = [alert[3] for alert in alerts_for_ip]
+            if "High" in severities:
+                threat_data["Threat Level"] = "High"
+            elif "Medium" in severities:
+                threat_data["Threat Level"] = "Medium"
+            else:
+                threat_data["Threat Level"] = "Low"
+
+            # Get unique threat types
+            threat_data["Malicious Activity"] = list(set(alert[2] for alert in alerts_for_ip))
+
+        # Get VirusTotal reputation
+        vt_data = self.check_ip_reputation(ip)
+        if vt_data and 'data' in vt_data:
+            stats = vt_data['data'].get('attributes', {}).get('last_analysis_stats', {})
+            malicious_count = stats.get('malicious', 0)
+            if malicious_count > 0:
+                threat_data["VirusTotal Reputation"] = f"Malicious ({malicious_count} detections)"
+            else:
+                threat_data["VirusTotal Reputation"] = "Clean"
+
+        return threat_data
 
     def resolve_hostname(self, ip):
         """Resolve the hostname for the given IP."""
@@ -700,21 +853,6 @@ class ThreatAlertsView(ttk.Frame):
             return socket.gethostbyaddr(ip)[0]
         except socket.herror:
             return "Unknown"
-
-    def get_geolocation(self, ip):
-        """Fetch geolocation data for the given IP using ipinfo.io API."""
-        if ip.startswith(("10.", "172.", "192.168.", "239.")):
-            return "Private/Multicast IP (No GeoIP data)"
-
-        try:
-            api_token = "c146aa543f265e"
-            response = requests.get(f"https://ipinfo.io/{ip}?token={api_token}")
-            response.raise_for_status()
-            data = response.json()
-            location = f"{data.get('city', 'Unknown')}, {data.get('region', 'Unknown')}, {data.get('country', 'Unknown')}, ISP: {data.get('org', 'Unknown')}"
-            return location
-        except Exception as e:
-            return "Geolocation data unavailable"
 
     def check_blacklist(self, ip):
         """Check if the IP is blacklisted using AbuseIPDB API."""
@@ -741,44 +879,66 @@ class ThreatAlertsView(ttk.Frame):
         except Exception as e:
             return "Blacklist status unavailable"
 
-    def get_first_seen(self, ip):
-        """Get the first seen timestamp for the given IP."""
-        for alert in self.alerts:
-            if alert[1] == ip:
-                return alert[0]
-        return "Unknown"
-
-    def get_alerts_for_ip(self, ip):
-        """Get all alerts generated for the given IP."""
-        return [alert[2] for alert in self.alerts if alert[1] == ip]
-
-    def get_connection_type(self, ip):
-        """Get the connection type (TCP/UDP) for the given IP."""
-        return "TCP/UDP"
-
-    def get_associated_ports(self, ip):
-        """Get the associated ports for the given IP."""
-        return "80, 443"
-
     def show_ip_details(self, details):
         """Display detailed information about the selected IP in a new window."""
         details_window = tk.Toplevel(self)
         details_window.title("IP Details")
-        details_window.geometry("600x400")
+        details_window.geometry("800x600")
+
+        # Configure styles
+        style = ttk.Style()
+        style.configure("Details.TLabel", 
+                       background=MATRIX_BG, 
+                       foreground=MATRIX_GREEN,
+                       font=("Consolas", 10))
+        style.configure("Details.TNotebook",
+                       background=MATRIX_BG,
+                       foreground=MATRIX_GREEN)
+        style.configure("Details.TNotebook.Tab",
+                       background=MATRIX_BG,
+                       foreground=MATRIX_GREEN)
 
         # Create a notebook for tabs
-        notebook = ttk.Notebook(details_window)
-        notebook.pack(fill=tk.BOTH, expand=True)
+        notebook = ttk.Notebook(details_window, style="Details.TNotebook")
+        notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # Add tabs for each category
         for category, data in details.items():
-            tab = ttk.Frame(notebook)
+            tab = ttk.Frame(notebook, style="Matrix.TFrame")
             notebook.add(tab, text=category)
+
+            # Create a frame for the content
+            content_frame = ttk.Frame(tab, style="Matrix.TFrame", padding=10)
+            content_frame.pack(fill=tk.BOTH, expand=True)
 
             # Add data to the tab
             for key, value in data.items():
-                label = ttk.Label(tab, text=f"{key}: {value}")
-                label.pack(anchor=tk.W, padx=10, pady=5)
+                if isinstance(value, list):
+                    # Handle list values (like Malicious Activity)
+                    label = ttk.Label(content_frame, 
+                                    text=f"{key}:",
+                                    style="Details.TLabel")
+                    label.pack(anchor=tk.W, padx=10, pady=(5,0))
+                    
+                    for item in value:
+                        item_label = ttk.Label(content_frame,
+                                             text=f"• {item}",
+                                             style="Details.TLabel")
+                        item_label.pack(anchor=tk.W, padx=20, pady=(0,2))
+                else:
+                    # Handle regular values
+                    label = ttk.Label(content_frame,
+                                    text=f"{key}: {value}",
+                                    style="Details.TLabel")
+                    label.pack(anchor=tk.W, padx=10, pady=5)
+
+        # Center the window on the screen
+        details_window.update_idletasks()
+        width = details_window.winfo_width()
+        height = details_window.winfo_height()
+        x = (details_window.winfo_screenwidth() // 2) - (width // 2)
+        y = (details_window.winfo_screenheight() // 2) - (height // 2)
+        details_window.geometry(f'{width}x{height}+{x}+{y}')
 
     def mark_as_resolved(self):
         selected_item = self.alert_tree.selection()
@@ -964,6 +1124,75 @@ class ThreatAlertsView(ttk.Frame):
         """Export data to an Excel file."""
         df = pd.DataFrame(data, columns=["Time", "IP", "Threat Type", "Severity", "Status"])
         df.to_excel(file_path, index=False, engine='openpyxl')
+
+    def apply_filters(self, event=None):
+        """Apply the current filters to the alert treeview."""
+        print(f"[DEBUG] Applying filters - Attack Type: {self.attack_type_var.get()}, Severity: {self.severity_var.get()}")
+        
+        # Clear current display
+        for item in self.alert_tree.get_children():
+            self.alert_tree.delete(item)
+
+        # Get filter values
+        attack_type = self.attack_type_var.get()
+        severity = self.severity_var.get()
+
+        print(f"[DEBUG] Total alerts in memory: {len(self.alerts)}")
+
+        # Re-add filtered alerts
+        for alert in self.alerts:
+            # Skip if IP is blocked or safe
+            if alert[1] in self.blocked_ips or alert[1] in self.safe_ips:
+                print(f"[DEBUG] Skipping blocked/safe IP: {alert[1]}")
+                continue
+
+            # Apply filters
+            alert_attack_type = alert[2]
+            alert_severity = alert[3]
+
+            matches_attack = attack_type == "All" or alert_attack_type == attack_type
+            matches_severity = severity == "All" or alert_severity == severity
+
+            print(f"[DEBUG] Alert: {alert}")
+            print(f"[DEBUG] Comparing - Attack Type: '{alert_attack_type}' with filter '{attack_type}'")
+            print(f"[DEBUG] Matches - Attack: {matches_attack}, Severity: {matches_severity}")
+
+            if matches_attack and matches_severity:
+                print(f"[DEBUG] Adding alert to treeview: {alert}")
+                self.alert_tree.insert("", "end", values=alert)
+
+        # Update status label
+        self.status_label.config(text=f"FILTERED: {attack_type} | {severity}")
+        print(f"[DEBUG] Current alerts in treeview: {len(self.alert_tree.get_children())}")
+
+    def clear_filters(self):
+        """Clear all filters and show all alerts."""
+        print("[DEBUG] Clearing all filters")
+        self.attack_type_var.set("All")
+        self.severity_var.set("All")
+        self.apply_filters()
+        self.status_label.config(text="MONITORING ACTIVE")
+
+    def toggle_detection(self):
+        """Toggle between pause and resume states for packet detection."""
+        if self.is_detection_paused:
+            self.resume_detection()
+        else:
+            self.pause_detection()
+
+    def pause_detection(self):
+        """Pause the packet detection."""
+        self.is_detection_paused = True
+        self.pause_button.config(text="RESUME DETECTION")
+        self.status_label.config(text="DETECTION PAUSED")
+        print("[DEBUG] Packet detection paused")
+
+    def resume_detection(self):
+        """Resume the packet detection."""
+        self.is_detection_paused = False
+        self.pause_button.config(text="PAUSE DETECTION")
+        self.status_label.config(text="MONITORING ACTIVE")
+        print("[DEBUG] Packet detection resumed")
 
 # Main application
 if __name__ == "__main__":
