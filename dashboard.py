@@ -31,8 +31,14 @@ class WelcomeApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Welcome")
-        # Make window full screen
-        self.root.attributes('-fullscreen', True)
+        # Set window to start maximized in a cross-platform way
+        if platform.system() == 'Windows':
+            self.root.state('zoomed')
+        else:
+            # For Linux and other systems, get screen dimensions and set window size
+            screen_width = self.root.winfo_screenwidth()
+            screen_height = self.root.winfo_screenheight()
+            self.root.geometry(f"{screen_width}x{screen_height}+0+0")
         self.root.configure(bg="#1a1a1a")
 
         # Colors
@@ -260,11 +266,19 @@ class IDSDashboard:
         
         # Bind window close event
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        
+        # Set window to start maximized in a cross-platform way
+        if platform.system() == 'Windows':
+            self.root.state('zoomed')
+        else:
+            # For Linux and other systems, get screen dimensions and set window size
+            screen_width = self.root.winfo_screenwidth()
+            screen_height = self.root.winfo_screenheight()
+            self.root.geometry(f"{screen_width}x{screen_height}+0+0")
 
     def setup_gui(self):
         """Set up the main GUI components."""
         self.root.title("MATRIX IDS 2.0")
-        self.root.attributes('-fullscreen', True)
         self.root.configure(bg=MATRIX_BG)
 
         # Configure styles with modern look
