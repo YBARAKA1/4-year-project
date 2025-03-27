@@ -633,7 +633,7 @@ class TrafficAnalysisView(ttk.Frame):
             self.top_talkers_tree.column(col, width=150)
         self.top_talkers_tree.pack(fill=tk.BOTH, expand=True)
 
-    def update_top_talkers(self):
+    def update_top_talkers(self, event=None):
         """Update the Top Talkers tab with the latest data."""
         if self.top_talkers_paused:
             return

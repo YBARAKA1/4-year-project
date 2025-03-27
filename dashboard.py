@@ -538,6 +538,8 @@ class IDSDashboard:
         self.show_view("Dashboard")  # Switch back to the Dashboard
         if hasattr(self, 'user_section_label'):
             self.user_section_label.destroy()  # Remove the user section label
+        if hasattr(self, 'status_label'):
+            self.status_label.config(text="Not logged in")  # Reset status label
         messagebox.showinfo("Logged Out", "You have been logged out.")
         
     def disable_sidebar_buttons(self):
@@ -939,8 +941,7 @@ Info: {values[5] if len(values) > 5 else 'N/A'}
         self.ax = self.fig.add_subplot(111, facecolor=MATRIX_BG)
         
         # Configure chart styling
-        self.ax.set_xlabel("Time Progression (60 Second Window)\n"
-                        "Left (60s ago) → Right (Current Moment)", 
+        self.ax.set_xlabel("Time Progression (60 Second Window)", 
                         color=MATRIX_GREEN,
                         fontsize=10,
                         labelpad=10,
@@ -1040,8 +1041,7 @@ Info: {values[5] if len(values) > 5 else 'N/A'}
                                       fontweight='bold')
             
             # Reapply styling
-            self.ax.set_xlabel("Time Progression (60 Second Window)\n"
-                        "Left (60s ago) → Right (Current Moment)", 
+            self.ax.set_xlabel("Time Progression (60 Second Window)", 
                             color=MATRIX_GREEN,
                         fontsize=10,
                             labelpad=10,
