@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox, ttk
 import psycopg2
-from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG, RED, GREEN
+from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG, RED, GREEN, BORDER, ui_font
 from login_window import LoginWindow, send_email_async 
 import pandas as pd
 import csv
@@ -14,11 +14,11 @@ from datetime import datetime
 # Database connection
 def get_db_connection():
     return psycopg2.connect(
-        dbname="ids_db",
-        user="postgres",
-        password="1221",
-        host="localhost",
-        port="5432"
+        dbname=os.getenv("DB_NAME", "ids_db"),
+        user=os.getenv("DB_USER", "postgres"),
+        password=os.getenv("DB_PASSWORD", "postgres"),
+        host=os.getenv("DB_HOST", "localhost"),
+        port=os.getenv("DB_PORT", "5432"),
     )
 
 # Admin Dashboard with Matrix Theme
@@ -29,10 +29,10 @@ class AdminDashboard(tk.Frame):
         self.configure(bg=MATRIX_BG)
 
         # Configure styles
-        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 12)}
-        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 10, "bold"), "relief": "flat"}
-        listbox_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 10), "selectbackground": ACCENT_GREEN}
-        entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 10), "insertbackground": MATRIX_GREEN}
+        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ui_font(12)}
+        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ui_font(10, bold=True), "relief": "flat"}
+        listbox_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ui_font(10), "selectbackground": ACCENT_GREEN, "selectforeground": BUTTON_FG, "relief": "flat", "highlightthickness": 1, "highlightbackground": BORDER}
+        entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ui_font(10), "insertbackground": MATRIX_GREEN}
 
         # Create notebook for tabs
         self.notebook = ttk.Notebook(self)
@@ -55,10 +55,10 @@ class AdminDashboard(tk.Frame):
     def setup_user_management_tab(self):
         """Setup the user management tab with existing functionality."""
         # Configure styles
-        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 12)}
-        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 10, "bold"), "relief": "flat"}
-        listbox_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 10), "selectbackground": ACCENT_GREEN}
-        entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 10), "insertbackground": MATRIX_GREEN}
+        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ui_font(12)}
+        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ui_font(10, bold=True), "relief": "flat"}
+        listbox_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ui_font(10), "selectbackground": ACCENT_GREEN, "selectforeground": BUTTON_FG, "relief": "flat", "highlightthickness": 1, "highlightbackground": BORDER}
+        entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ui_font(10), "insertbackground": MATRIX_GREEN}
 
         # Title and Search Frame
         title_frame = tk.Frame(self.user_management_tab, bg=MATRIX_BG)
@@ -88,7 +88,7 @@ class AdminDashboard(tk.Frame):
         self.status_var.trace('w', self.apply_filters)
         statuses = ["All", "Pending", "Approved", "Rejected"]
         self.status_menu = tk.OptionMenu(status_frame, self.status_var, *statuses)
-        self.status_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=("Consolas", 10))
+        self.status_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=ui_font(10))
         self.status_menu.pack(side=tk.LEFT, padx=5)
 
         # Purpose Filter
@@ -98,7 +98,7 @@ class AdminDashboard(tk.Frame):
         self.purpose_var = tk.StringVar(value="All")
         self.purpose_var.trace('w', self.apply_filters)
         self.purpose_menu = tk.OptionMenu(purpose_frame, self.purpose_var, "All")  # Will be populated dynamically
-        self.purpose_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=("Consolas", 10))
+        self.purpose_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=ui_font(10))
         self.purpose_menu.pack(side=tk.LEFT, padx=5)
 
         # Listbox with Scrollbar
@@ -128,7 +128,7 @@ class AdminDashboard(tk.Frame):
 
         # Add hover effects
         for button in [self.approve_button, self.reject_button, self.refresh_button]:
-            button.bind("<Enter>", lambda e, b=button: b.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+            button.bind("<Enter>", lambda e, b=button: b.config(bg=ACCENT_GREEN, fg=BUTTON_FG))
             button.bind("<Leave>", lambda e, b=button: b.config(bg=BUTTON_BG, fg=BUTTON_FG))
 
         # Load initial data
@@ -137,8 +137,8 @@ class AdminDashboard(tk.Frame):
     def setup_threat_actions_tab(self):
         """Setup the threat actions tab to show threat management history."""
         # Configure styles
-        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 12)}
-        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 10, "bold"), "relief": "flat"}
+        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ui_font(12)}
+        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ui_font(10, bold=True), "relief": "flat"}
 
         # Title Frame
         title_frame = tk.Frame(self.threat_actions_tab, bg=MATRIX_BG)
@@ -168,26 +168,26 @@ class AdminDashboard(tk.Frame):
             fg=MATRIX_GREEN,
             activebackground=ACCENT_GREEN,
             activeforeground=MATRIX_BG,
-            font=("Consolas", 10)
+            font=ui_font(10)
         )
         self.export_menu.add_command(
             label="Export as PDF",
             command=lambda: self.export_data("pdf"),
-            font=("Consolas", 10)
+            font=ui_font(10)
         )
         self.export_menu.add_command(
             label="Export as Excel",
             command=lambda: self.export_data("excel"),
-            font=("Consolas", 10)
+            font=ui_font(10)
         )
         self.export_menu.add_command(
             label="Export as CSV",
             command=lambda: self.export_data("csv"),
-            font=("Consolas", 10)
+            font=ui_font(10)
         )
 
         # Add hover effects for export button
-        self.export_button.bind("<Enter>", lambda e: self.export_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+        self.export_button.bind("<Enter>", lambda e: self.export_button.config(bg=ACCENT_GREEN, fg=BUTTON_FG))
         self.export_button.bind("<Leave>", lambda e: self.export_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
 
         # Refresh button (placed next to export button)
@@ -201,7 +201,7 @@ class AdminDashboard(tk.Frame):
         refresh_button.pack(side=tk.LEFT, padx=5)
 
         # Add hover effects for refresh button
-        refresh_button.bind("<Enter>", lambda e: refresh_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+        refresh_button.bind("<Enter>", lambda e: refresh_button.config(bg=ACCENT_GREEN, fg=BUTTON_FG))
         refresh_button.bind("<Leave>", lambda e: refresh_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
 
         # Filters container
@@ -216,7 +216,7 @@ class AdminDashboard(tk.Frame):
         self.action_var.trace('w', self.apply_threat_filters)
         actions = ["All", "Blocked", "Marked Safe"]
         self.action_menu = tk.OptionMenu(action_frame, self.action_var, *actions)
-        self.action_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=("Consolas", 10))
+        self.action_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=ui_font(10))
         self.action_menu.pack(side=tk.LEFT, padx=5)
 
         # Severity Filter
@@ -227,7 +227,7 @@ class AdminDashboard(tk.Frame):
         self.severity_var.trace('w', self.apply_threat_filters)
         severities = ["All", "Low", "Medium", "High"]
         self.severity_menu = tk.OptionMenu(severity_frame, self.severity_var, *severities)
-        self.severity_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=("Consolas", 10))
+        self.severity_menu.config(bg=DARK_GREEN, fg=MATRIX_GREEN, font=ui_font(10))
         self.severity_menu.pack(side=tk.LEFT, padx=5)
 
         # Create Treeview for threat actions
@@ -655,9 +655,9 @@ class AdminLoginWindow(tk.Toplevel):
         self.configure(bg=MATRIX_BG)
 
         # Configure styles
-        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 12)}
-        entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 12), "insertbackground": MATRIX_GREEN}
-        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 12, "bold"), "relief": "flat"}
+        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ui_font(12)}
+        entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ui_font(12), "insertbackground": MATRIX_GREEN}
+        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ui_font(12, bold=True), "relief": "flat"}
 
         # Username Label and Entry
         tk.Label(self, text="Username:", **label_style).pack(pady=10)
@@ -674,7 +674,7 @@ class AdminLoginWindow(tk.Toplevel):
         self.login_button.pack(pady=20)
 
         # Add hover effects
-        self.login_button.bind("<Enter>", lambda e: self.login_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+        self.login_button.bind("<Enter>", lambda e: self.login_button.config(bg=ACCENT_GREEN, fg=BUTTON_FG))
         self.login_button.bind("<Leave>", lambda e: self.login_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
 
     def open_login(self):

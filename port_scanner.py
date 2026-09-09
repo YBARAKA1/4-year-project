@@ -7,7 +7,7 @@ import threading
 import csv
 import json
 import socket
-from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN
+from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_FG, ui_font
 
 def get_local_ip():
     """Get the local IP address."""
@@ -161,22 +161,22 @@ class PortScannerView(ttk.Frame):
         style.configure("PortScanner.TLabel", 
                        background=MATRIX_BG, 
                        foreground=MATRIX_GREEN,
-                       font=("Consolas", 12))
+                       font=ui_font(12))
         style.configure("PortScanner.TButton",
                        background=DARK_GREEN,
                        foreground=MATRIX_GREEN,
-                       font=("Consolas", 10),
+                       font=ui_font(10),
                        borderwidth=0)
         style.map("PortScanner.TButton",
                  background=[("active", ACCENT_GREEN)],
-                 foreground=[("active", MATRIX_BG)])
+                 foreground=[("active", BUTTON_FG)])
         style.configure("PortScanner.TLabelframe",
                        background=MATRIX_BG,
                        foreground=MATRIX_GREEN)
         style.configure("PortScanner.TLabelframe.Label",
                        background=MATRIX_BG,
                        foreground=MATRIX_GREEN,
-                       font=("Consolas", 12, "bold"))
+                       font=ui_font(12, bold=True))
         style.configure("PortScanner.TEntry",
                        fieldbackground=DARK_GREEN,
                        foreground=MATRIX_GREEN,
@@ -185,7 +185,7 @@ class PortScannerView(ttk.Frame):
                        fieldbackground=DARK_GREEN,
                        foreground=MATRIX_GREEN,
                        selectbackground=ACCENT_GREEN,
-                       selectforeground=MATRIX_BG)
+                       selectforeground=BUTTON_FG)
         style.configure("PortScanner.Treeview",
                        background=DARK_GREEN,
                        foreground=MATRIX_GREEN,
@@ -194,10 +194,10 @@ class PortScannerView(ttk.Frame):
         style.configure("PortScanner.Treeview.Heading",
                        background=DARK_GREEN,
                        foreground=MATRIX_GREEN,
-                       font=("Consolas", 10, "bold"))
+                       font=ui_font(10, bold=True))
         style.map("PortScanner.Treeview",
                  background=[("selected", ACCENT_GREEN)],
-                 foreground=[("selected", MATRIX_BG)])
+                 foreground=[("selected", BUTTON_FG)])
         
         # Configure scrollbar style
         style.configure("PortScanner.Vertical.TScrollbar",
@@ -208,7 +208,7 @@ class PortScannerView(ttk.Frame):
                        arrowsize=13)
         style.map("PortScanner.Vertical.TScrollbar",
                  background=[("active", ACCENT_GREEN)],
-                 foreground=[("active", MATRIX_BG)])
+                 foreground=[("active", BUTTON_FG)])
 
         # Main container with padding
         main_frame = ttk.Frame(self, style="PortScanner.TFrame")
@@ -219,7 +219,7 @@ class PortScannerView(ttk.Frame):
             main_frame,
             text="PORT SCANNER",
             style="PortScanner.TLabel",
-            font=("Consolas", 24, "bold")
+            font=ui_font(24, bold=True)
         )
         title_label.pack(pady=(0, 20))
         
@@ -246,7 +246,7 @@ class PortScannerView(ttk.Frame):
             target_frame,
             text=self.local_ip,
             style="PortScanner.TLabel",
-            font=("Consolas", 12, "bold")
+            font=ui_font(12, bold=True)
         )
         target_label.pack(side=tk.LEFT, padx=5)
         
@@ -398,7 +398,7 @@ class PortScannerView(ttk.Frame):
             main_frame,
             textvariable=self.status_var,
             style="PortScanner.TLabel",
-            font=("Consolas", 10, "bold")
+            font=ui_font(10, bold=True)
         )
         self.status_bar.pack(fill=tk.X, pady=(10, 0))
         

@@ -3,6 +3,7 @@ from tkinter import ttk
 import subprocess
 import threading
 from queue import Queue, Empty
+from constants import DARK_GREEN, MATRIX_BG, MATRIX_GREEN, MUTED, mono_font, ui_font
 
 class TerminalView(ttk.Frame):
     def __init__(self, parent):
@@ -30,11 +31,16 @@ class TerminalView(ttk.Frame):
         # Create a text widget to display terminal output
         self.terminal_output = tk.Text(
             output_frame,
-            bg="#1e1e1e",  # Dark background
-            fg="#00ff00",  # Bright green text
-            font=("Consolas", 12),
+            bg=DARK_GREEN,
+            fg=MATRIX_GREEN,
+            font=mono_font(11),
             wrap=tk.WORD,
-            insertbackground="#00ff00",  # Cursor color
+            insertbackground=MATRIX_GREEN,
+            relief="flat",
+            highlightthickness=1,
+            highlightbackground=MATRIX_BG,
+            padx=8,
+            pady=8,
             yscrollcommand=scrollbar.set
         )
         self.terminal_output.pack(fill=tk.BOTH, expand=True)
@@ -47,7 +53,7 @@ class TerminalView(ttk.Frame):
         # Create an entry widget for user input
         self.terminal_input = ttk.Entry(
             input_frame,
-            font=("Consolas", 12)
+            font=mono_font(11)
         )
         self.terminal_input.pack(side=tk.LEFT, fill=tk.X, expand=True)
         self.terminal_input.bind("<Return>", self.execute_command)
@@ -76,8 +82,8 @@ class TerminalView(ttk.Frame):
         ttk.Label(
             self,
             text="Enter commands below (use ↑↓ arrows for command history):",
-            font=("Consolas", 10),
-            foreground="#888888"
+            font=ui_font(10),
+            foreground=MUTED
         ).pack(pady=5)
 
         # Configure styles

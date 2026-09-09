@@ -1,4 +1,4 @@
-#!/home/barakag/Documents/newids/newids/bin/python
+#!/home/kali/Documents/4-year-project/newids/bin/python
 
 ##############################################################################
 #

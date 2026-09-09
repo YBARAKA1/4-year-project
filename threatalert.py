@@ -1,3 +1,4 @@
+import os
 import socket
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
@@ -13,7 +14,7 @@ from fpdf import FPDF
 from scapy.all import IP, TCP, UDP, ICMP, Raw
 
 
-from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN
+from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_FG, ui_font
 from login import get_db_connection
 
 class ThreatAlertsView(ttk.Frame):
@@ -35,8 +36,13 @@ class ThreatAlertsView(ttk.Frame):
         self.is_detection_paused = False  # Add flag for pause state
         self.sniffing_thread = None  # Store the sniffing thread
 
-        # Load Suricata alerts
-        suricata_alerts = self.parse_suricata_alerts("/var/log/suricata/eve.json")
+        # Load Suricata alerts from the system log, or the sample file in this project
+        log_candidates = [
+            "/var/log/suricata/eve.json",
+            os.path.join(os.path.dirname(__file__), "eve.json"),
+        ]
+        log_file = next((path for path in log_candidates if os.path.isfile(path)), None)
+        suricata_alerts = self.parse_suricata_alerts(log_file) if log_file else []
         for alert in suricata_alerts:
             self.add_alert((
                 alert["timestamp"],
@@ -64,13 +70,8 @@ class ThreatAlertsView(ttk.Frame):
         # Show the message box
         response = messagebox.showwarning("Threat Alert", message, type=messagebox.OKCANCEL)
         
-        # If the user clicks "OK" (or "Check"), check if they are logged in
         if response == "ok":
-            if not self.parent.logged_in:
-                messagebox.showinfo("Login Required", "Please log in to view details.")
-                self.parent.open_login()
-            else:
-                self.log_threat_to_db(threat_type, ip, alert_time, severity)
+            self.log_threat_to_db(threat_type, ip, alert_time, severity)
 
     def log_threat_to_db(self, threat_type, ip, alert_time, severity):
         """Log the threat to the appropriate database table based on severity."""
@@ -223,8 +224,10 @@ class ThreatAlertsView(ttk.Frame):
                             "signature": alert["alert"]["signature"],
                             "severity": alert["alert"]["severity"]
                         })
+        except FileNotFoundError:
+            return alerts
         except Exception as e:
-            print(f"Error parsing Suricata alerts: {e}")
+            print(f"Could not read Suricata alerts: {e}")
         return alerts
 
     def setup_ui(self):
@@ -239,22 +242,22 @@ class ThreatAlertsView(ttk.Frame):
         style.configure("Matrix.TLabel", 
                        background=MATRIX_BG, 
                        foreground=MATRIX_GREEN,
-                       font=("Consolas", 10))
+                       font=ui_font(10))
         style.configure("Matrix.TButton",
                        background=DARK_GREEN,
                        foreground=MATRIX_GREEN,
-                       font=("Consolas", 10),
+                       font=ui_font(10),
                        borderwidth=0)
         style.map("Matrix.TButton",
                  background=[("active", ACCENT_GREEN)],
-                 foreground=[("active", MATRIX_BG)])
+                 foreground=[("active", BUTTON_FG)])
         style.configure("Matrix.TLabelframe",
                        background=MATRIX_BG,
                        foreground=MATRIX_GREEN)
         style.configure("Matrix.TLabelframe.Label",
                        background=MATRIX_BG,
                        foreground=MATRIX_GREEN,
-                       font=("Consolas", 12, "bold"))
+                       font=ui_font(12, bold=True))
 
         # Main title with Matrix effect
         title_frame = ttk.Frame(self, style="Matrix.TFrame")
@@ -263,7 +266,7 @@ class ThreatAlertsView(ttk.Frame):
         title_label = ttk.Label(
             title_frame,
             text="REAL-TIME THREAT DETECTION",
-            font=("Consolas", 24, "bold"),
+            font=ui_font(24, bold=True),
             style="Matrix.TLabel"
         )
         title_label.pack(pady=5)
@@ -275,7 +278,7 @@ class ThreatAlertsView(ttk.Frame):
         self.status_label = ttk.Label(
             status_frame,
             text="MONITORING ACTIVE",
-            font=("Consolas", 10),
+            font=ui_font(10),
             style="Matrix.TLabel"
         )
         self.status_label.pack(side=tk.LEFT)
@@ -386,7 +389,7 @@ class ThreatAlertsView(ttk.Frame):
             background=MATRIX_BG,
             foreground=MATRIX_GREEN,
             relief="flat",
-            font=("Consolas", 10, "bold")
+            font=ui_font(10, bold=True)
         )
         style.map("Matrix.Treeview.Heading",
                  background=[("active", MATRIX_BG)],
@@ -724,7 +727,12 @@ class ThreatAlertsView(ttk.Frame):
     def start_real_time_detection(self):
         """Start sniffing network traffic for real-time threat detection."""
         def start_sniffing():
-            self.sniffing_thread = sniff(prn=self.packet_callback, store=0)
+            try:
+                sniff(prn=self.packet_callback, store=0)
+            except PermissionError:
+                print("Threat detection skipped: packet capture needs root privileges.")
+            except Exception as e:
+                print(f"Threat detection stopped: {e}")
 
         # Start sniffing in a separate thread
         self.sniffing_thread = threading.Thread(target=start_sniffing, daemon=True)
@@ -890,7 +898,7 @@ class ThreatAlertsView(ttk.Frame):
         style.configure("Details.TLabel", 
                        background=MATRIX_BG, 
                        foreground=MATRIX_GREEN,
-                       font=("Consolas", 10))
+                       font=ui_font(10))
         style.configure("Details.TNotebook",
                        background=MATRIX_BG,
                        foreground=MATRIX_GREEN)
@@ -966,15 +974,15 @@ class ThreatAlertsView(ttk.Frame):
         style.configure("Export.TLabel", 
                        background=MATRIX_BG, 
                        foreground=MATRIX_GREEN,
-                       font=("Consolas", 10))
+                       font=ui_font(10))
         style.configure("Export.TButton",
                        background=DARK_GREEN,
                        foreground=MATRIX_GREEN,
-                       font=("Consolas", 10),
+                       font=ui_font(10),
                        borderwidth=0)
         style.map("Export.TButton",
                  background=[("active", ACCENT_GREEN)],
-                 foreground=[("active", MATRIX_BG)])
+                 foreground=[("active", BUTTON_FG)])
         style.configure("Export.TCombobox",
                        background=MATRIX_BG,
                        foreground=MATRIX_GREEN,
@@ -989,7 +997,7 @@ class ThreatAlertsView(ttk.Frame):
         # Title
         title_label = ttk.Label(main_frame, 
                               text="EXPORT THREAT DATA",
-                              font=("Consolas", 16, "bold"),
+                              font=ui_font(16, bold=True),
                               style="Export.TLabel")
         title_label.pack(pady=(0, 20))
 

@@ -1,4 +1,5 @@
 import datetime
+import ipaddress
 import threading
 import tkinter as tk
 from tkinter import ttk
@@ -9,6 +10,7 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 import time
 import geoip2.database
+import geoip2.errors
 from geopy.geocoders import Nominatim
 import folium
 from folium.plugins import HeatMap
@@ -19,10 +21,13 @@ import pandas as pd
 from fpdf import FPDF
 import tempfile
 import os
+from dotenv import load_dotenv
 import webbrowser
 from datetime import datetime
 from PIL import Image, ImageTk
-from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN
+from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, FONT_UI, PROTOCOL_COLORS, ui_font
+
+load_dotenv()
 
 class TrafficAnalysisView(ttk.Frame):
     def __init__(self, parent):
@@ -54,6 +59,7 @@ class TrafficAnalysisView(ttk.Frame):
 
         # Load GeoIP database
         self.geoip_reader = geoip2.database.Reader("GeoLite2-City.mmdb")
+        self.geoip_cache = {}
         print("GeoIP database loaded.")
 
         # Set up the UI
@@ -82,11 +88,11 @@ class TrafficAnalysisView(ttk.Frame):
         """Establish a database connection."""
         try:
             return psycopg2.connect(
-                dbname="ids_db",
-                user="postgres",
-                password="1221",
-                host="localhost",
-                port="5432"
+                dbname=os.getenv("DB_NAME", "ids_db"),
+                user=os.getenv("DB_USER", "postgres"),
+                password=os.getenv("DB_PASSWORD", "postgres"),
+                host=os.getenv("DB_HOST", "localhost"),
+                port=os.getenv("DB_PORT", "5432"),
             )
         except Exception as e:
             print(f"Database connection error: {e}")
@@ -155,8 +161,8 @@ class TrafficAnalysisView(ttk.Frame):
     def configure_style(self):
         """Configure the Matrix theme for the Traffic Analysis page."""
         self.style.configure("TrafficAnalysis.TFrame", background=MATRIX_BG)
-        self.style.configure("TrafficAnalysis.TLabel", background=MATRIX_BG, foreground=MATRIX_GREEN, font=("Consolas", 12))
-        self.style.configure("TrafficAnalysis.TButton", background=DARK_GREEN, foreground=MATRIX_GREEN, font=("Consolas", 10))
+        self.style.configure("TrafficAnalysis.TLabel", background=MATRIX_BG, foreground=MATRIX_GREEN, font=ui_font(12))
+        self.style.configure("TrafficAnalysis.TButton", background=DARK_GREEN, foreground=MATRIX_GREEN, font=ui_font(10))
 
     def setup_ui(self):
         """Set up the Traffic Analysis page UI."""
@@ -194,7 +200,12 @@ class TrafficAnalysisView(ttk.Frame):
     def start_packet_capture(self):
         """Start a thread to capture packets in real-time."""
         def capture_packets():
-            scapy.sniff(prn=self.process_packet, store=False)
+            try:
+                scapy.sniff(prn=self.process_packet, store=False)
+            except PermissionError:
+                print("Traffic capture skipped: packet capture needs root privileges.")
+            except Exception as e:
+                print(f"Traffic capture stopped: {e}")
 
         capture_thread = threading.Thread(target=capture_packets, daemon=True)
         capture_thread.start()
@@ -414,7 +425,7 @@ class TrafficAnalysisView(ttk.Frame):
             main_container,
             text="Protocol Distribution",
             style="TrafficAnalysis.TLabel",
-            font=("Consolas", 16, "bold")
+            font=ui_font(16, bold=True)
         )
         title_label.pack(pady=(0, 20))
 
@@ -487,13 +498,7 @@ class TrafficAnalysisView(ttk.Frame):
     def update_protocol_breakdown(self):
         """Update the protocol breakdown pie chart."""
         # Define protocols and their colors
-        protocols = {
-            "TCP": "#00FF00",  # Bright green
-            "UDP": "#00CC00",  # Medium green
-            "ICMP": "#009900",  # Dark green
-            "ARP": "#006600",   # Very dark green
-            "802.11": "#003300" # Darkest green
-        }
+        protocols = PROTOCOL_COLORS
 
         # Get data for each protocol
         sizes = []
@@ -707,14 +712,50 @@ class TrafficAnalysisView(ttk.Frame):
             self.geolocation_tree.column(col, width=150)
         self.geolocation_tree.pack(fill=tk.BOTH, expand=True)
 
+    def local_network_label(self, ip):
+        """Describe non-routable addresses without a public GeoIP lookup."""
+        try:
+            address = ipaddress.ip_address(ip)
+        except ValueError:
+            return None
+        if address.is_loopback:
+            return "Loopback"
+        if address.is_link_local:
+            return "Link-local"
+        if address.is_private:
+            return "Local network"
+        if address.is_multicast:
+            return "Multicast"
+        if address.is_reserved or address.is_unspecified:
+            return "Reserved"
+        return None
+
     def update_geolocation(self, ip):
-        """Map an IP address to a location using GeoIP."""
+        """Map an IP address to a location. Private addresses are local, not missing GeoIP rows."""
+        if ip in self.packet_data["geolocation"]:
+            return
+
+        local = self.local_network_label(ip)
+        if local:
+            self.packet_data["geolocation"][ip] = local
+            return
+
+        if ip in self.geoip_cache:
+            self.packet_data["geolocation"][ip] = self.geoip_cache[ip]
+            return
+
         try:
             response = self.geoip_reader.city(ip)
-            location = f"{response.city.name}, {response.country.name}"
-            self.packet_data["geolocation"][ip] = location
-        except Exception as e:
-            print(f"GeoIP lookup failed for {ip}: {e}")
+            city = response.city.name or "Unknown city"
+            country = response.country.name or "Unknown country"
+            location = f"{city}, {country}"
+        except geoip2.errors.AddressNotFoundError:
+            location = "Public address, no city record"
+        except Exception:
+            location = "Lookup unavailable"
+
+        self.geoip_cache[ip] = location
+        self.packet_data["geolocation"][ip] = location
 
     def toggle_geolocation_pause(self):
         """Toggle pause/resume state for geolocation updates."""
@@ -997,13 +1038,8 @@ class TrafficAnalysisView(ttk.Frame):
         return max(set(protocols), key=protocols.count) if protocols else "Unknown"
     
     def is_internal_ip(self, ip):
-        """Check if an IP is internal (RFC 1918)."""
-        if ip.startswith("10.") or ip.startswith("192.168."):
-            return True
-        if ip.startswith("172."):
-            second_octet = int(ip.split(".")[1])
-            return 16 <= second_octet <= 31
-        return False
+        """True for private, loopback, and link-local addresses."""
+        return self.local_network_label(ip) in {"Local network", "Loopback", "Link-local"}
     
     def is_suspicious_location(self, location):
         """Check if a location is considered suspicious."""
@@ -1064,7 +1100,7 @@ class TrafficAnalysisView(ttk.Frame):
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
 
         # Text widget for detailed packet inspection
-        self.packet_text = tk.Text(parent, wrap=tk.WORD, bg=MATRIX_BG, fg=MATRIX_GREEN, font=("Consolas", 10))
+        self.packet_text = tk.Text(parent, wrap=tk.WORD, bg=MATRIX_BG, fg=MATRIX_GREEN, font=ui_font(10))
         self.packet_text.pack(fill=tk.BOTH, expand=True)
 
         # Bind Treeview selection event to show packet details
@@ -1132,19 +1168,13 @@ class TrafficAnalysisView(ttk.Frame):
 
     def get_ip_location(self, ip):
         """Get location information for an IP address."""
-        try:
-            # Check if it's an internal IP first
-            if self.is_internal_ip(ip):
-                return "Internal Network"
-            
-            # Try to get location from GeoIP database
-            response = self.geoip_reader.city(ip)
-            if response and response.city and response.country:
-                return f"{response.city.name}, {response.country.name}"
-            return "Unknown Location"
-        except Exception as e:
-            print(f"Error getting location for IP {ip}: {e}")
-            return "Unknown Location"
+        local = self.local_network_label(ip)
+        if local:
+            return local
+        if ip in self.geoip_cache:
+            return self.geoip_cache[ip]
+        self.update_geolocation(ip)
+        return self.packet_data["geolocation"].get(ip, "Lookup unavailable")
 
     def is_suspicious_packet(self, src_ip, dst_ip, protocol):
         """Check if a packet is considered suspicious."""

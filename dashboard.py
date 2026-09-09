@@ -18,9 +18,24 @@ import os
 import signal
 import math
 from trafficanalysis import TrafficAnalysisView  
-from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN
+from constants import (
+    ACCENT_GREEN,
+    BORDER,
+    BUTTON_BG,
+    BUTTON_FG,
+    CHART_IN,
+    CHART_OUT,
+    DARK_GREEN,
+    mono_font,
+    ui_font,
+    MATRIX_BG,
+    MATRIX_GREEN,
+    MUTED,
+    SURFACE,
+    AMBER,
+)
+from theme import apply_theme
 from trafficanalysis import TrafficAnalysisView
-from administrator import AdminDashboard
 from threatalert import ThreatAlertsView
 from login_window import LoginWindow  
 # ======================
@@ -30,108 +45,90 @@ from login_window import LoginWindow
 class WelcomeApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("Welcome")
-        # Set window to start maximized in a cross-platform way
-        if platform.system() == 'Windows':
-            self.root.state('zoomed')
-        else:
-            # For Linux and other systems, get screen dimensions and set window size
-            screen_width = self.root.winfo_screenwidth()
-            screen_height = self.root.winfo_screenheight()
-            self.root.geometry(f"{screen_width}x{screen_height}+0+0")
-        self.root.configure(bg="#1a1a1a")
+        self.root.title("Network IDS")
+        self.root.configure(bg=MATRIX_BG)
+        self.root.geometry("760x480")
+        self.root.resizable(False, False)
+        self.center_window()
 
-        # Colors
-        self.bg_color = "#1a1a1a"
-        self.text_color = "#ffffff"
-        self.accent_blue = "#00c0ff"
-        self.glitch_colors = ["#ff0000", "#00ff00", "#ffff00", "#ff00ff"]  # Red, Green, Yellow, Purple
+        self.capture_ok = hasattr(os, "geteuid") and os.geteuid() == 0
+        host = platform.node() or "localhost"
+        self.lines = [
+            "nids sensor console",
+            f"host {host}",
+            "link layer capture " + ("available" if self.capture_ok else "unavailable without root"),
+            "detector SYN flood / UDP flood / ARP spoof",
+            "opening operations view",
+        ]
+        self.line_index = 0
+        self.char_index = 0
 
-        # Create welcome label
-        self.welcome_label = tk.Label(
-            self.root,
-            text="Network IDS",
-            font=("Segoe UI", 48, "bold"),
-            fg=self.accent_blue,
-            bg=self.bg_color
+        frame = tk.Frame(self.root, bg=DARK_GREEN, highlightbackground=BORDER, highlightthickness=1)
+        frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER, width=560, height=320)
+        tk.Frame(frame, bg=ACCENT_GREEN, height=3).pack(fill=tk.X)
+
+        tk.Label(
+            frame,
+            text="NIDS",
+            font=mono_font(22, bold=True),
+            fg=ACCENT_GREEN,
+            bg=DARK_GREEN,
+        ).pack(anchor="w", padx=28, pady=(22, 0))
+        tk.Label(
+            frame,
+            text="network intrusion detection",
+            font=mono_font(10),
+            fg=MUTED,
+            bg=DARK_GREEN,
+        ).pack(anchor="w", padx=28, pady=(0, 12))
+
+        self.log = tk.Text(
+            frame,
+            bg=DARK_GREEN,
+            fg=ACCENT_GREEN,
+            font=mono_font(11),
+            height=8,
+            relief="flat",
+            highlightthickness=0,
+            wrap="none",
         )
-        self.welcome_label.place(relx=0.5, rely=0.4, anchor=tk.CENTER)
+        self.log.pack(fill=tk.BOTH, expand=True, padx=28, pady=(0, 18))
+        self.log.configure(state="disabled")
+        self.root.after(180, self.type_next)
 
-        # Start glitch effect
-        self.root.after(500, self.glitch_effect)
+    def center_window(self):
+        self.root.update_idletasks()
+        width, height = 760, 480
+        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        self.root.geometry(f"{width}x{height}+{x}+{y}")
 
-    def glitch_effect(self, count=0):
-        """Creates a more realistic glitch effect on 'Welcome'"""
-        if count < 8:  # Run glitch effect 8 times
-            glitch_text = "N3tw@rk 1D$  " if count % 2 == 0 else "n3tm07sk I96"
-            self.welcome_label.config(text=glitch_text, fg=random.choice(self.glitch_colors))
-            self.root.after(100, self.glitch_effect, count + 1)
+    def type_next(self):
+        if self.line_index >= len(self.lines):
+            self.root.after(500, self.transition_to_dashboard)
+            return
+        line = self.lines[self.line_index]
+        self.log.configure(state="normal")
+        if self.char_index == 0:
+            self.log.insert(tk.END, "> ")
+        self.log.insert(tk.END, line[self.char_index])
+        self.log.configure(state="disabled")
+        self.log.see(tk.END)
+        self.char_index += 1
+        if self.char_index >= len(line):
+            self.log.configure(state="normal")
+            self.log.insert(tk.END, "\n")
+            self.log.configure(state="disabled")
+            self.line_index += 1
+            self.char_index = 0
+            self.root.after(160, self.type_next)
         else:
-            self.welcome_label.config(text="Welcome", fg=self.accent_blue)
-            self.root.after(500, self.fade_to_black)
-
-    def fade_to_black(self):
-        """Turns the screen completely black before displaying hacking effect"""
-        self.welcome_label.destroy()
-        self.root.configure(bg="black")
-        self.root.after(500, self.start_hacking_effect)
-
-    def start_hacking_effect(self):
-        """Creates a 'Matrix-style' scrolling green text effect"""
-        self.hack_texts = []
-        self.hack_canvas = tk.Canvas(self.root, bg="black", highlightthickness=0)
-        self.hack_canvas.pack(fill=tk.BOTH, expand=True)
-
-        # Generate 20+ lines of random 'hacking' text
-        self.fake_hack_lines = [
-            f"root@NIDS:~# {random.choice(['Monitoring traffic...', 'Analyzing packets...', 'Scanning for anomalies...', 'Detecting threats...'])}",
-            f"ALERT [{random.randint(1000, 9999)}]: {random.choice(['Possible DDoS attack detected', 'Suspicious SSH brute-force attempt', 'Malicious payload signature identified', 'Unauthorized access attempt'])}",
-            f"Packet Capture [{random.randint(1000, 9999)} packets] -> Logging to /var/log/nids.log...",
-            f"Snort Rule Triggered: [{random.randint(1000, 9999)}] {random.choice(['SQL Injection', 'XSS Attempt', 'Port Scanning Detected', 'Malware Communication'])}",
-            f"Source IP: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)} -> Destination IP: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
-            f"Deep Packet Inspection -> {random.choice(['Suspicious payload found', 'No anomalies detected', 'Potential exploit detected'])}",
-            f"Firewall Alert: {random.randint(10, 500)} blocked connections from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
-            f"Real-time traffic analysis: {random.randint(500, 5000)} packets/sec | {random.randint(50, 500)} anomalies detected",
-            f"Anomaly Score: {random.randint(1, 100)} | {random.choice(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])} risk",
-            f"TCP SYN Flood detected: {random.randint(1000, 9999)} requests per second",
-            f"Encrypted traffic analysis: {random.choice(['Possible TLS downgrade attack', 'Unusual SSL/TLS handshake', 'No anomalies found'])}",
-            f"Botnet C&C Communication detected: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)} -> Flagging for further analysis...",
-            f"New unauthorized MAC Address detected on network: {':'.join(['%02x' % random.randint(0, 255) for _ in range(6)])}",
-            f"IDS Log: {random.randint(10000, 99999)} new security events recorded...",
-            f"Port Scan Detected: {random.randint(20, 100)} open ports from IP {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
-            f"DNS Spoofing Attempt: Malicious DNS response from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
-            f"ARP Spoofing detected: MAC Address mismatch for {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
-            f"Syslog Alert: Unusual activity on port {random.randint(1000, 9999)}",
-            f"MITM Attack Warning: Duplicate ARP replies detected from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
-        ] * 5  # Repeat for more lines
-
-        self.hack_y = 10  # Start printing from the top
-        self.type_hacking_text()
-
-    def type_hacking_text(self):
-        """Types out the fake hacking text, scrolling down"""
-        if self.fake_hack_lines:
-            text = self.fake_hack_lines.pop(0)
-            hack_label = self.hack_canvas.create_text(20, self.hack_y, anchor="w", text=text, font=("Courier", 14), fill="green")
-            self.hack_texts.append(hack_label)
-            self.hack_y += 20  # Move down for next line
-
-            # Scroll effect
-            if len(self.hack_texts) > 30:
-                self.hack_canvas.move("all", 0, -20)  # Shift all text up
-
-            self.root.after(100, self.type_hacking_text)  # Delay between lines
-        else:
-            self.root.after(1500, self.transition_to_dashboard)  # Wait before switching
+            self.root.after(18, self.type_next)
 
     def transition_to_dashboard(self):
-        """Flashes the screen and transitions to the dashboard.py file"""
-        self.hack_canvas.destroy()
-        self.root.destroy()  # Close the welcome window
-
-        # Launch the IDSDashboard
+        self.root.destroy()
         root = tk.Tk()
-        app = IDSDashboard(root)
+        IDSDashboard(root)
         root.mainloop()
 
 
@@ -220,12 +217,6 @@ class IDSDashboard:
         print(f"[DEBUG] Role received in IDSDashboard: {self.role}")
         print(f"[DEBUG] First name received in IDSDashboard: {self.first_name}")
         
-        # Colors
-        self.bg_color = "#1a1a1a"
-        self.text_color = "#ffffff"
-        self.accent_blue = "#00c0ff"
-        self.glitch_colors = ["#ff0000", "#00ff00", "#ffff00", "#ff00ff"]  # Red, Green, Yellow, Purple
-        
         self.detector = IntrusionDetector()
         self.alert_queue = queue.Queue()
         self.packet_queue = queue.Queue()
@@ -233,33 +224,16 @@ class IDSDashboard:
         
         self.current_view = None
         self.views = {}  # Holds the different view frames
-        self.logged_in = False  # Track login status
+        self.logged_in = True
+        self.role = role or "admin"
+        self.first_name = first_name or "Operator"
+        self.sidebar_visible = True
+        self.capture_ok = False
+        self.sensor_pulse = False
         
         # Initialize packet_tree and alert_tree
         self.packet_tree = None
         self.alert_tree = None
-        
-        # Update CyberGauge roles if role is provided
-        if self.role:
-            self.update_gauge_roles(self.role)
-        
-        # Add login button with theme styling
-        self.login_button = tk.Button(
-            root,
-            text="Login",
-            command=self.open_login,
-            bg=DARK_GREEN,  # Background color
-            fg=MATRIX_GREEN,  # Text color
-            font=("Consolas", 10, "bold"),  # Font
-            relief="flat",  # Remove button border
-            activebackground=DARK_GREEN,  # Background color when clicked
-            activeforeground=MATRIX_GREEN  # Text color when clicked
-        )
-        self.login_button.pack(side=tk.TOP, anchor=tk.NE, padx=10, pady=10)
-        
-        # Add hover effects to the login button
-        self.login_button.bind("<Enter>", lambda e: self.login_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
-        self.login_button.bind("<Leave>", lambda e: self.login_button.config(bg=DARK_GREEN, fg=MATRIX_GREEN))
         
         self.setup_gui()
         self.setup_threads()
@@ -278,56 +252,9 @@ class IDSDashboard:
 
     def setup_gui(self):
         """Set up the main GUI components."""
-        self.root.title("MATRIX IDS 2.0")
-        self.root.configure(bg=MATRIX_BG)
-
-        # Configure styles with modern look
+        self.root.title("NIDS — host sensor")
+        apply_theme(self.root)
         self.style = ttk.Style()
-        self.style.theme_use('clam')
-        
-        # Configure base styles
-        self.style.configure(".", 
-                           background=MATRIX_BG, 
-                           foreground=MATRIX_GREEN,
-                           font=("Segoe UI", 10))
-        
-        # Configure header style
-        self.style.configure("Header.TLabel", 
-                           font=("Segoe UI", 14, "bold"),
-                           background=MATRIX_BG,
-                           foreground=MATRIX_GREEN,
-                           padding=10)
-        
-        # Configure Treeview with modern look
-        self.style.configure("Treeview", 
-                            background=DARK_GREEN,
-                            foreground=MATRIX_GREEN,
-                            fieldbackground=DARK_GREEN,
-                           borderwidth=0,
-                           rowheight=25)
-        
-        # Configure Treeview headings
-        self.style.configure("Treeview.Heading",
-                           background=DARK_GREEN,
-                           foreground=MATRIX_GREEN,
-                           font=("Segoe UI", 10, "bold"))
-        
-        # Configure Treeview selection
-        self.style.map('Treeview', 
-                      background=[('selected', ACCENT_GREEN)],
-                      foreground=[('selected', MATRIX_BG)])
-        
-        # Configure Button styles
-        self.style.configure("Sidebar.TButton",
-                           background=DARK_GREEN,
-                           foreground=MATRIX_GREEN,
-                           font=("Segoe UI", 10),
-                           padding=10,
-                            borderwidth=0)
-        
-        self.style.map("Sidebar.TButton",
-                      background=[('active', ACCENT_GREEN)],
-                      foreground=[('active', MATRIX_BG)])
 
         # Top frame for toggle button with modern styling
         self.top_frame = ttk.Frame(self.root)
@@ -356,13 +283,15 @@ class IDSDashboard:
         self.container = ttk.Frame(self.main_container)
         self.container.pack(side=tk.LEFT, fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Initialize status label
+        self.status_dot = tk.Canvas(self.top_frame, width=12, height=12, bg=MATRIX_BG, highlightthickness=0)
+        self.status_dot.pack(side=tk.RIGHT, padx=(0, 8))
         self.status_label = ttk.Label(
             self.top_frame,
-            text="Not logged in",
-            style="Header.TLabel"
+            text="sensor idle",
+            style="Muted.TLabel"
         )
         self.status_label.pack(side=tk.RIGHT, padx=10)
+        self.pulse_sensor()
 
         # Show default view
         self.show_view("Dashboard")
@@ -373,98 +302,21 @@ class IDSDashboard:
         if not hasattr(self, 'mem_gauge'):
             self.mem_gauge = CyberGauge(self.container, "MEMORY USAGE", MATRIX_BG, MATRIX_GREEN, role=self.role)
 
+    def pulse_sensor(self):
+        """Pulse the sensor indicator. Color reflects real capture state."""
+        self.sensor_pulse = not self.sensor_pulse
+        color = ACCENT_GREEN if self.capture_ok and self.sensor_pulse else (AMBER if not self.capture_ok else SURFACE)
+        if self.capture_ok:
+            color = ACCENT_GREEN if self.sensor_pulse else SURFACE
+        else:
+            color = AMBER if self.sensor_pulse else SURFACE
+        self.status_dot.delete("all")
+        self.status_dot.create_oval(2, 2, 10, 10, fill=color, outline="")
+        self.root.after(700, self.pulse_sensor)
+
     def on_closing(self):
-        """Handle window closing with animation."""
-        self.start_closing_animation()
-        
-    def start_closing_animation(self):
-        """Start the closing animation sequence."""
-        # Safely hide all current widgets
-        for widget in self.root.winfo_children():
-            try:
-                if hasattr(widget, 'pack_forget'):
-                    widget.pack_forget()
-                elif hasattr(widget, 'grid_forget'):
-                    widget.grid_forget()
-                elif hasattr(widget, 'place_forget'):
-                    widget.place_forget()
-            except Exception:
-                continue
-            
-        # Create canvas for closing animation
-        self.close_canvas = tk.Canvas(self.root, bg="black", highlightthickness=0)
-        self.close_canvas.pack(fill=tk.BOTH, expand=True)
-        
-        # Generate fake hack lines for closing
-        self.close_hack_lines = [
-            f"root@NIDS:~# {random.choice(['Shutting down monitoring...', 'Closing connections...', 'Saving logs...', 'Terminating processes...'])}",
-            f"ALERT [{random.randint(1000, 9999)}]: {random.choice(['System shutdown initiated', 'Backing up configurations', 'Clearing temporary files', 'Closing network interfaces'])}",
-            f"Packet Capture [{random.randint(1000, 9999)} packets] -> Saving to /var/log/nids.log...",
-            f"Snort Rule Triggered: [{random.randint(1000, 9999)}] {random.choice(['Final system check', 'Security audit complete', 'Network interfaces down', 'System shutdown in progress'])}",
-            f"Source IP: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)} -> Destination IP: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
-            f"Deep Packet Inspection -> {random.choice(['Final security check', 'System shutdown complete', 'All processes terminated'])}",
-            f"Firewall Alert: {random.randint(10, 500)} connections closed from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
-            f"Real-time traffic analysis: {random.randint(500, 5000)} packets/sec | {random.randint(50, 500)} final checks",
-            f"Anomaly Score: {random.randint(1, 100)} | {random.choice(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'])} risk",
-            f"TCP SYN Flood detected: {random.randint(1000, 9999)} requests per second",
-            f"Encrypted traffic analysis: {random.choice(['Final security check', 'System shutdown in progress', 'All processes terminated'])}",
-            f"Botnet C&C Communication detected: {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)} -> Final analysis...",
-            f"New unauthorized MAC Address detected on network: {':'.join(['%02x' % random.randint(0, 255) for _ in range(6)])}",
-            f"IDS Log: {random.randint(10000, 99999)} final security events recorded...",
-            f"Port Scan Detected: {random.randint(20, 100)} open ports from IP {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
-            f"DNS Spoofing Attempt: Final check from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
-            f"ARP Spoofing detected: MAC Address mismatch for {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
-            f"Syslog Alert: Final activity check on port {random.randint(1000, 9999)}",
-            f"MITM Attack Warning: Final check from {random.randint(100, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}",
-        ] * 5  # Repeat for more lines
-        
-        self.close_hack_y = 10
-        self.type_closing_text()
-        
-    def type_closing_text(self):
-        """Types out the closing animation text."""
-        if self.close_hack_lines:
-            text = self.close_hack_lines.pop(0)
-            self.close_canvas.create_text(20, self.close_hack_y, anchor="w", text=text, font=("Courier", 14), fill="green")
-            self.close_hack_y += 20
-            
-            # Scroll effect
-            if self.close_hack_y > self.root.winfo_height():
-                self.close_canvas.move("all", 0, -20)
-                
-            self.root.after(100, self.type_closing_text)
-        else:
-            self.root.after(500, self.start_glitch_effect)
-            
-    def start_glitch_effect(self):
-        """Start the glitch effect before closing."""
-        self.close_canvas.delete("all")
-        self.glitch_label = tk.Label(
-            self.close_canvas,
-            text="Network IDS",
-            font=("Segoe UI", 48, "bold"),
-            fg=self.accent_blue,
-            bg="black"
-        )
-        self.glitch_label.place(relx=0.5, rely=0.4, anchor=tk.CENTER)
-        self.glitch_count = 0
-        self.glitch_effect()
-        
-    def glitch_effect(self):
-        """Creates a glitch effect before closing."""
-        if self.glitch_count < 8:
-            glitch_text = "N3tw@rk 1D$  " if self.glitch_count % 2 == 0 else "n3tm07sk I96"
-            self.glitch_label.config(text=glitch_text, fg=random.choice(self.glitch_colors))
-            self.glitch_count += 1
-            self.root.after(100, self.glitch_effect)
-        else:
-            self.root.after(500, self.fade_to_black)
-            
-    def fade_to_black(self):
-        """Fade to black before closing."""
-        self.glitch_label.destroy()
-        self.close_canvas.configure(bg="black")
-        self.root.after(500, self.root.destroy)
+        """Close the application."""
+        self.root.destroy()
         
     def open_login(self):
         """Open the login window and handle login success."""
@@ -517,7 +369,7 @@ class IDSDashboard:
             self.status_label.config(text=f"Logged in as {self.first_name} ({self.role})")
         
         # Update login button
-        self.login_button.config(text="Logout", command=self.logout)
+        self.login_button.config(text="Sign out", command=self.logout)
         
         # Show success message
         messagebox.showinfo("Success", f"Welcome back, {self.first_name}!")
@@ -533,7 +385,7 @@ class IDSDashboard:
     def logout(self):
         """Log out the user and restrict access to other pages."""
         self.logged_in = False
-        self.login_button.config(text="Login", command=self.open_login)  # Reset button to login
+        self.login_button.config(text="Sign in", command=self.open_login)
         self.disable_sidebar_buttons()  # Disable all sidebar buttons except Dashboard
         self.show_view("Dashboard")  # Switch back to the Dashboard
         if hasattr(self, 'user_section_label'):
@@ -551,22 +403,10 @@ class IDSDashboard:
     def enable_sidebar_buttons(self):
         """Enable all sidebar buttons after successful login."""
         for button in self.sidebar_buttons:
-            if button["text"] == "Administrator" and self.role != "admin":
-                button.config(state=tk.DISABLED)  # Disable Administrator button for non-admin users
-            else:
-                button.config(state=tk.NORMAL)  # Enable all other buttons
+            button.config(state=tk.NORMAL)
 
     def show_view(self, view_name):
-        """Show the specified view, but restrict access based on user role."""
-        if view_name != "Dashboard" and not self.logged_in:
-            messagebox.showinfo("Login Required", "Please log in to access this feature.")
-            return
-
-        # Restrict access to the Administrator page for non-admin users
-        if view_name == "Administrator" and self.role != "admin":
-            messagebox.showinfo("Access Denied", "You do not have permission to access the Administrator page.")
-            return
-
+        """Show the specified view."""
         # Hide current view
         if self.current_view:
             self.current_view.pack_forget()
@@ -582,8 +422,6 @@ class IDSDashboard:
             elif view_name == "ThreatAlerts":
                 # Pass the user information to ThreatAlertsView
                 self.views[view_name] = ThreatAlertsView(self.container, self.role, self.first_name)
-            elif view_name == "Administrator":
-                self.views[view_name] = AdminDashboard(self.container)
             elif view_name == "Terminal":
                 from terminal import TerminalView
                 self.views[view_name] = TerminalView(self.container)
@@ -594,23 +432,31 @@ class IDSDashboard:
         # Display the view
         self.current_view = self.views[view_name]
         self.current_view.pack(fill=tk.BOTH, expand=True)
+        self._set_active_nav(view_name)
         
     def show_terminal(self):
         """Show the Terminal view."""
         self.show_view("Terminal")
         
     def setup_threads(self):
+        def note_capture(_packet):
+            if not self.capture_ok:
+                self.capture_ok = True
+                self.root.after(0, lambda: self.status_label.config(text="sensor live"))
+            self.process_packet(_packet)
+
         def sniff_packets():
-            while True:
-                try:
-                    scapy.sniff(
-                        prn=self.process_packet,
-                        store=0,
-                        filter="ip or arp or tcp or udp"  # Filter packets of interest
-                    )
-                except Exception as e:
-                    print(f"Sniffing error: {e}. Reopening socket...")
-                    time.sleep(1)  # Wait before reopening the socket
+            try:
+                scapy.sniff(
+                    prn=note_capture,
+                    store=0,
+                    filter="ip or arp or tcp or udp"
+                )
+            except PermissionError:
+                print("Packet capture unavailable without root. Live traffic will stay at zero.")
+                self.root.after(0, lambda: self.status_label.config(text="sensor idle — capture needs root"))
+            except Exception as e:
+                print(f"Packet capture stopped: {e}")
 
         sniff_thread = threading.Thread(target=sniff_packets, daemon=True)
         sniff_thread.start()
@@ -630,7 +476,7 @@ class IDSDashboard:
         self.mem_gauge = CyberGauge(left_panel, "\nMEMORY USAGE", width=300, height=330, bg=MATRIX_BG, fg=MATRIX_GREEN, role=self.role)  # Pass role
         self.mem_gauge.pack(pady=10)
         ttk.Label(left_panel, text="LIVE TRAFFIC", style="Header.TLabel").pack(pady=10)
-        self.net_stats = ttk.Label(left_panel, text="IN: 0.00 MB/s\nOUT: 0.00 MB/s", font=("Consolas", 10))
+        self.net_stats = ttk.Label(left_panel, text="Inbound  0.00 KB/s\nOutbound 0.00 KB/s", font=mono_font(11))
         self.net_stats.pack()
         left_panel.pack(side=tk.LEFT, fill=tk.Y)
 
@@ -657,11 +503,11 @@ class IDSDashboard:
         header_frame = ttk.Frame(parent, style="Sidebar.TFrame")
         header_frame.pack(fill=tk.X, pady=(10, 20))
         
-        header_label = ttk.Label(header_frame, 
-                               text="MATRIX IDS",
-                               style="Header.TLabel",
-                               background=DARK_GREEN)
-        header_label.pack(pady=5)
+        header_label = ttk.Label(header_frame,
+                               text="NIDS",
+                               style="SidebarHeader.TLabel")
+        header_label.pack(pady=(8, 0))
+        ttk.Label(header_frame, text="host sensor", style="SidebarMuted.TLabel").pack(pady=(0, 8))
         
         # Navigation buttons with modern styling
         buttons = [
@@ -670,26 +516,38 @@ class IDSDashboard:
             ("Traffic Analysis", self.show_traffic_analysis),
             ("Threat Alerts", self.show_threat_alerts),
             ("Port Scanner", self.show_port_scanner),
-            ("Administrator", self.show_admin_page),
             ("Terminal", self.show_terminal),
         ]
 
         # Store sidebar buttons for enabling/disabling
         self.sidebar_buttons = []
+        self.nav_by_view = {}
+        view_keys = {
+            "Dashboard": "Dashboard",
+            "Packet Stream": "PacketStream",
+            "Traffic Analysis": "TrafficAnalysis",
+            "Threat Alerts": "ThreatAlerts",
+            "Port Scanner": "PortScanner",
+            "Terminal": "Terminal",
+        }
         for text, command in buttons:
             button = ttk.Button(parent, 
                               text=text, 
                               style="Sidebar.TButton",
                                 command=command)
-            button.pack(pady=2, fill=tk.X, padx=5)
+            button.pack(pady=2, fill=tk.X, padx=12)
             self.sidebar_buttons.append(button)
+            self.nav_by_view[view_keys[text]] = button
 
-        # Initially disable all buttons except Dashboard
-        self.disable_sidebar_buttons()
-        self.sidebar_buttons[0].config(state=tk.NORMAL)  # Enable Dashboard button
+        self.enable_sidebar_buttons()
 
         # Initially show the sidebar
         self.sidebar_visible = True
+
+    def _set_active_nav(self, view_name):
+        """Highlight the navigation item for the current view."""
+        for name, button in getattr(self, "nav_by_view", {}).items():
+            button.configure(style="SidebarActive.TButton" if name == view_name else "Sidebar.TButton")
 
     def toggle_sidebar(self):
         """Toggle the sidebar visibility."""
@@ -712,10 +570,7 @@ class IDSDashboard:
     def enable_sidebar_buttons(self):
         """Enable all sidebar buttons after successful login."""
         for button in self.sidebar_buttons:
-            if button["text"] == "Administrator" and self.role != "admin":
-                button.config(state=tk.DISABLED)  # Disable Administrator button for non-admin users
-            else:
-                button.config(state=tk.NORMAL)  # Enable all other buttons
+            button.config(state=tk.NORMAL)
 
     def show_dashboard(self):
         self.show_view("Dashboard")
@@ -728,11 +583,6 @@ class IDSDashboard:
 
     def show_packet_stream(self):
         self.show_view("PacketStream")
-        
-    def show_admin_page(self):
-        """Show the Admin Dashboard view."""
-        self.root.title("Admin Dashboard")  # Set the window title
-        self.show_view("Administrator")
         
     def show_port_scanner(self):
         """Show the Port Scanner view."""
@@ -755,7 +605,7 @@ class IDSDashboard:
         # Network Stats
         ttk.Label(parent, text="LIVE TRAFFIC", style="Header.TLabel").pack(pady=10)
         self.net_stats = ttk.Label(parent, text="IN: 0.00 MB/s\nOUT: 0.00 MB/s",
-                                    font=("Consolas", 10))
+                                    font=ui_font(10))
         self.net_stats.pack()
 
     def setup_right_panel(self, parent):
@@ -913,7 +763,7 @@ class IDSDashboard:
 
         # Create text widget with custom styling
         text_widget = tk.Text(details_window, bg=DARK_GREEN, fg=MATRIX_GREEN,
-                            font=("Consolas", 10), wrap=tk.WORD)
+                            font=ui_font(10), wrap=tk.WORD)
         text_widget.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
         # Format and display packet details
@@ -963,7 +813,7 @@ Info: {values[5] if len(values) > 5 else 'N/A'}
         
         # Style the spines
         for spine in self.ax.spines.values():
-            spine.set_color(MATRIX_GREEN)
+            spine.set_color(BORDER)
             spine.set_linewidth(1)
         
         # Add subtle grid
@@ -998,13 +848,13 @@ Info: {values[5] if len(values) > 5 else 'N/A'}
             
             # Plot with modern styling
             self.ax.plot(seconds_ago, incoming_traffic,
-                        color=ACCENT_GREEN, 
+                        color=CHART_IN, 
                         linewidth=2, 
                         label='Incoming Traffic',
                         alpha=0.8)
             
             self.ax.plot(seconds_ago, outgoing_traffic,
-                        color=MATRIX_GREEN,
+                        color=CHART_OUT,
                         linestyle='--',
                         linewidth=2,
                         label='Outgoing Traffic',
@@ -1062,7 +912,7 @@ Info: {values[5] if len(values) > 5 else 'N/A'}
                               grid_alpha=0.3)
             
             for spine in self.ax.spines.values():
-                spine.set_color(MATRIX_GREEN)
+                spine.set_color(BORDER)
                 spine.set_linewidth(1)
             
             self.ax.grid(True, 
@@ -1074,7 +924,7 @@ Info: {values[5] if len(values) > 5 else 'N/A'}
             # Add modern legend
             legend = self.ax.legend(
                 facecolor=MATRIX_BG,
-                edgecolor=MATRIX_GREEN,
+                edgecolor=BORDER,
                 labelcolor=MATRIX_GREEN,
                 loc='upper left',
                 bbox_to_anchor=(0, 1),
@@ -1094,7 +944,10 @@ Info: {values[5] if len(values) > 5 else 'N/A'}
         # Update network stats (convert to KB/s)
         net_in = self.detector.traffic_history['in'][-1] if self.detector.traffic_history['in'] else 0
         net_out = self.detector.traffic_history['out'][-1] if self.detector.traffic_history['out'] else 0
-        self.net_stats.config(text=f"IN: {net_in:.2f} KB/s\nOUT: {net_out:.2f} KB/s")
+        if not self.capture_ok and net_in == 0 and net_out == 0:
+            self.net_stats.config(text="Inbound  —\nOutbound —\nno capture socket")
+        else:
+            self.net_stats.config(text=f"Inbound  {net_in:.2f} KB/s\nOutbound {net_out:.2f} KB/s")
         
         # Process packets and alerts
         self.process_queues()
@@ -1196,7 +1049,7 @@ Info: {values[5] if len(values) > 5 else 'N/A'}
             self.user_section_label = tk.Label(
                 self.top_frame,
                 text=f"{self.first_name}'s Section",
-                font=("Segoe UI", 14, "bold"),
+                font=ui_font(14, bold=True),
                 bg=MATRIX_BG,
                 fg=MATRIX_GREEN
             )
@@ -1214,7 +1067,9 @@ class CyberGauge(tk.Canvas):
         self.bg = bg
         self.fg = fg
         self.role = role
+        self.sweep = 0
         self.bind("<Configure>", self.draw_gauge)
+        self.after(80, self.animate_sweep)
         self.bind("<Button-1>", self.show_processes)
         self.bind("<Button-3>", self.show_context_menu)
         self.context_menu = None
@@ -1236,42 +1091,41 @@ class CyberGauge(tk.Canvas):
         self.draw_gauge()
 
     def draw_gauge(self, event=None):
-        """Draw the gauge with modern styling."""
+        """Draw a host-resource instrument. The arc length matches the measured value."""
         self.delete("all")
-        w = self.winfo_width()
-        h = self.winfo_height()
-        size = min(w, h) - 20
-        
-        # Create gradient effect with hover enhancement
-        for i in range(0, 270, 5):
-            color = self.fade_color(i/270)
-            if self.hover:
-                # Enhance colors on hover
-                color = self.enhance_color(color)
-            self.create_arc(10, 10, 10+size, 10+size,
-                          start=45+i, extent=5,
-                          outline=color,
-                          width=3, style="arc")
-        
-        # Value indicator with modern styling
-        angle = 45 + (270 * (self.value / 100))
-        self.create_line(w/2, h/2,
-                        w/2 + (size/2)*0.8 * math.cos(math.radians(angle)),
-                        h/2 + (size/2)*0.8 * math.sin(math.radians(angle)),
-                        fill=ACCENT_GREEN if self.hover else "#ff3300",
-                        width=3)
-        
-        # Center text with modern styling
-        self.create_text(w/2, h/2, 
-                        text=f"{self.value}%", 
-                        fill=self.fg,
-                        font=("Segoe UI", 16, "bold"))
-        
-        # Title with modern styling
-        self.create_text(w/2, h-15, 
-                        text=self.title,
-                        fill=self.fg,
-                        font=("Segoe UI", 10))
+        w = max(self.winfo_width(), 40)
+        h = max(self.winfo_height(), 40)
+        size = min(w, h) - 24
+        x0 = (w - size) / 2
+        y0 = 12
+        value = min(max(self.value, 0), 100)
+        fill = ACCENT_GREEN if value < 80 else AMBER
+
+        self.create_arc(
+            x0, y0, x0 + size, y0 + size,
+            start=225, extent=-270,
+            outline=SURFACE, width=10, style="arc",
+        )
+        if value > 0:
+            self.create_arc(
+                x0, y0, x0 + size, y0 + size,
+                start=225, extent=-270 * (value / 100),
+                outline=fill, width=10, style="arc",
+            )
+
+        cx = w / 2
+        cy = y0 + size / 2
+        sweep_angle = math.radians(225 - self.sweep)
+        radius = size / 2 - 8
+        self.create_line(
+            cx, cy,
+            cx + radius * math.cos(sweep_angle),
+            cy - radius * math.sin(sweep_angle),
+            fill=BORDER, width=1,
+        )
+        cy = y0 + size / 2
+        self.create_text(cx, cy - 6, text=f"{value:.0f}%", fill=self.fg, font=mono_font(16, bold=True))
+        self.create_text(cx, h - 16, text=self.title.strip(), fill=MUTED, font=mono_font(9))
 
     def enhance_color(self, color):
         """Enhance color brightness on hover."""
@@ -1290,10 +1144,16 @@ class CyberGauge(tk.Canvas):
 
     def fade_color(self, progress):
         """Create a smooth color gradient."""
-        r = int(0x00 * (1 - progress) + 0x00 * progress)
-        g = int(0xcc * (1 - progress) + 0xff * progress)
-        b = int(0x00 * (1 - progress) + 0x00 * progress)
+        r = int(0x1E * (1 - progress) + 0x3B * progress)
+        g = int(0x3A * (1 - progress) + 0x82 * progress)
+        b = int(0x5F * (1 - progress) + 0xF6 * progress)
         return f"#{r:02x}{g:02x}{b:02x}"
+
+    def animate_sweep(self):
+        """Keep a faint scan tick moving so the instrument feels live."""
+        self.sweep = (self.sweep + 6) % 270
+        self.draw_gauge()
+        self.after(80, self.animate_sweep)
 
     def set_value(self, value):
         self.value = min(max(value, 0), 100)

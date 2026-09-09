@@ -10,7 +10,7 @@ import string
 from dotenv import load_dotenv
 import os
 import threading
-from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG
+from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG, BORDER, MUTED, ui_font
 from login import EMAIL_HOST, EMAIL_PASSWORD, EMAIL_PORT, EMAIL_USER, SignUpWindow
 
 # Load environment variables
@@ -19,11 +19,11 @@ load_dotenv()
 # Database connection
 def get_db_connection():
     return psycopg2.connect(
-        dbname="ids_db",
-        user="postgres",
-        password="1221",
-        host="localhost",
-        port="5432"
+        dbname=os.getenv("DB_NAME", "ids_db"),
+        user=os.getenv("DB_USER", "postgres"),
+        password=os.getenv("DB_PASSWORD", "postgres"),
+        host=os.getenv("DB_HOST", "localhost"),
+        port=os.getenv("DB_PORT", "5432"),
     )
 
 # Generate alphanumeric token
@@ -72,18 +72,39 @@ class LoginWindow(tk.Toplevel):
         self.center_window()
         
         # Configure styles
-        title_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 16, "bold")}
-        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 12)}
-        entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 12), "insertbackground": MATRIX_GREEN}
-        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 12, "bold"), "relief": "flat", "width": 20}
+        title_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ui_font(20, bold=True)}
+        subtitle_style = {"bg": MATRIX_BG, "fg": MUTED, "font": ui_font(10)}
+        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ui_font(11)}
+        entry_style = {
+            "bg": DARK_GREEN,
+            "fg": MATRIX_GREEN,
+            "font": ui_font(12),
+            "insertbackground": MATRIX_GREEN,
+            "relief": "flat",
+            "highlightthickness": 1,
+            "highlightbackground": BORDER,
+            "highlightcolor": ACCENT_GREEN,
+        }
+        button_style = {
+            "bg": BUTTON_BG,
+            "fg": BUTTON_FG,
+            "font": ui_font(11, bold=True),
+            "relief": "flat",
+            "width": 22,
+            "pady": 8,
+            "cursor": "hand2",
+            "activebackground": ACCENT_GREEN,
+            "activeforeground": BUTTON_FG,
+        }
 
         # Create main frame with padding
         self.main_frame = tk.Frame(self, bg=MATRIX_BG, padx=40, pady=40)
         self.main_frame.pack(expand=True, fill="both")
 
         # Title
-        self.title_label = tk.Label(self.main_frame, text="Welcome Back", **title_style)
-        self.title_label.pack(pady=(0, 30))
+        self.title_label = tk.Label(self.main_frame, text="Sign in", **title_style)
+        self.title_label.pack(pady=(0, 4))
+        tk.Label(self.main_frame, text="Use your account email to continue.", **subtitle_style).pack(pady=(0, 24))
 
         # Email Frame
         self.email_frame = tk.Frame(self.main_frame, bg=MATRIX_BG)
@@ -118,9 +139,9 @@ class LoginWindow(tk.Toplevel):
         self.signup_button.pack(pady=5)
 
         # Add hover effects
-        self.login_button.bind("<Enter>", lambda e: self.login_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+        self.login_button.bind("<Enter>", lambda e: self.login_button.config(bg=ACCENT_GREEN, fg=BUTTON_FG))
         self.login_button.bind("<Leave>", lambda e: self.login_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
-        self.signup_button.bind("<Enter>", lambda e: self.signup_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+        self.signup_button.bind("<Enter>", lambda e: self.signup_button.config(bg=ACCENT_GREEN, fg=BUTTON_FG))
         self.signup_button.bind("<Leave>", lambda e: self.signup_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
 
         # Make window modal

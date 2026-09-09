@@ -9,7 +9,7 @@ import string
 from dotenv import load_dotenv
 import os
 import threading  # For background email sending
-from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG
+from constants import MATRIX_BG, MATRIX_GREEN, DARK_GREEN, ACCENT_GREEN, BUTTON_BG, BUTTON_FG, BORDER, MUTED, ui_font
 import tkcalendar  # Add tkcalendar import
 
 # Load environment variables
@@ -18,11 +18,11 @@ load_dotenv()
 # Database connection
 def get_db_connection():
     return psycopg2.connect(
-        dbname="ids_db",
-        user="postgres",
-        password="1221",
-        host="localhost",
-        port="5432"
+        dbname=os.getenv("DB_NAME", "ids_db"),
+        user=os.getenv("DB_USER", "postgres"),
+        password=os.getenv("DB_PASSWORD", "postgres"),
+        host=os.getenv("DB_HOST", "localhost"),
+        port=os.getenv("DB_PORT", "5432"),
     )
 
 # Email configuration
@@ -73,18 +73,38 @@ class SignUpWindow(tk.Toplevel):
         self.center_window()
 
         # Configure styles
-        title_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 16, "bold")}
-        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ("Consolas", 12)}
-        entry_style = {"bg": DARK_GREEN, "fg": MATRIX_GREEN, "font": ("Consolas", 12), "insertbackground": MATRIX_GREEN}
-        button_style = {"bg": BUTTON_BG, "fg": BUTTON_FG, "font": ("Consolas", 12, "bold"), "relief": "flat", "width": 20}
+        title_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ui_font(20, bold=True)}
+        label_style = {"bg": MATRIX_BG, "fg": MATRIX_GREEN, "font": ui_font(11)}
+        entry_style = {
+            "bg": DARK_GREEN,
+            "fg": MATRIX_GREEN,
+            "font": ui_font(12),
+            "insertbackground": MATRIX_GREEN,
+            "relief": "flat",
+            "highlightthickness": 1,
+            "highlightbackground": BORDER,
+            "highlightcolor": ACCENT_GREEN,
+        }
+        button_style = {
+            "bg": BUTTON_BG,
+            "fg": BUTTON_FG,
+            "font": ui_font(11, bold=True),
+            "relief": "flat",
+            "width": 22,
+            "pady": 6,
+            "cursor": "hand2",
+            "activebackground": ACCENT_GREEN,
+            "activeforeground": BUTTON_FG,
+        }
 
         # Create main frame with padding
         main_frame = tk.Frame(self, bg=MATRIX_BG, padx=40, pady=40)
         main_frame.pack(expand=True, fill="both")
 
         # Title
-        title_label = tk.Label(main_frame, text="Create New Account", **title_style)
-        title_label.pack(pady=(0, 30))
+        title_label = tk.Label(main_frame, text="Create account", **title_style)
+        title_label.pack(pady=(0, 4))
+        tk.Label(main_frame, text="Request access to the operations console.", bg=MATRIX_BG, fg=MUTED, font=ui_font(10)).pack(pady=(0, 16))
 
         # Back Button (top-left corner)
         self.back_button = tk.Button(main_frame, text="← Back", command=self.go_back, **button_style)
@@ -132,7 +152,7 @@ class SignUpWindow(tk.Toplevel):
         
         # Create calendar button
         self.calendar_button = tk.Button(calendar_frame, text="📅", command=self.show_calendar, 
-                                       bg=BUTTON_BG, fg=BUTTON_FG, font=("Consolas", 12))
+                                       bg=BUTTON_BG, fg=BUTTON_FG, font=ui_font(12))
         self.calendar_button.pack(side="right", padx=(5, 0))
         
         # Create calendar popup window (initially hidden)
@@ -151,9 +171,9 @@ class SignUpWindow(tk.Toplevel):
         self.signup_button.pack(pady=30)
 
         # Add hover effects
-        self.back_button.bind("<Enter>", lambda e: self.back_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+        self.back_button.bind("<Enter>", lambda e: self.back_button.config(bg=ACCENT_GREEN, fg=BUTTON_FG))
         self.back_button.bind("<Leave>", lambda e: self.back_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
-        self.signup_button.bind("<Enter>", lambda e: self.signup_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+        self.signup_button.bind("<Enter>", lambda e: self.signup_button.config(bg=ACCENT_GREEN, fg=BUTTON_FG))
         self.signup_button.bind("<Leave>", lambda e: self.signup_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
 
     def center_window(self):
@@ -216,7 +236,7 @@ class SignUpWindow(tk.Toplevel):
             othermonthwebackground=MATRIX_BG,
             othermonthweforeground=DARK_GREEN,
             bordercolor=MATRIX_GREEN,
-            font=("Consolas", 10)
+            font=ui_font(10)
         )
         self.calendar_widget.pack(padx=10, pady=10)
         
@@ -227,7 +247,7 @@ class SignUpWindow(tk.Toplevel):
             command=self.select_date,
             bg=BUTTON_BG,
             fg=BUTTON_FG,
-            font=("Consolas", 12, "bold"),
+            font=ui_font(12, bold=True),
             relief="flat",
             width=10
         )
@@ -246,7 +266,7 @@ class SignUpWindow(tk.Toplevel):
         self.calendar_window.grab_set()
         
         # Add hover effect to select button
-        select_button.bind("<Enter>", lambda e: select_button.config(bg=ACCENT_GREEN, fg=MATRIX_BG))
+        select_button.bind("<Enter>", lambda e: select_button.config(bg=ACCENT_GREEN, fg=BUTTON_FG))
         select_button.bind("<Leave>", lambda e: select_button.config(bg=BUTTON_BG, fg=BUTTON_FG))
         
         # Add window close handler
@@ -314,6 +334,8 @@ class SignUpWindow(tk.Toplevel):
                 messagebox.showerror("Error", "Please fill in all fields.")
                 return  # Exit the method without closing the window
 
+            conn = None
+            cur = None
             try:
                 conn = get_db_connection()
                 cur = conn.cursor()
@@ -357,9 +379,11 @@ class SignUpWindow(tk.Toplevel):
                 print(f"[ERROR] Signup failed: {str(e)}")
                 messagebox.showerror("Error", "Signup failed")
             finally:
-                cur.close()
-                conn.close()
-                print("[DEBUG] Database connection closed")
+                if cur is not None:
+                    cur.close()
+                if conn is not None:
+                    conn.close()
+                    print("[DEBUG] Database connection closed")
         except tk.TclError:
             # Window was destroyed, ignore the error
             pass
